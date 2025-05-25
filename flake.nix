@@ -1,5 +1,5 @@
 {
-  description = "Óðinn";
+  description = "odin";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

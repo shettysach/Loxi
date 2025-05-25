@@ -2,12 +2,14 @@ package loxi
 
 import "core:fmt"
 
+DEBUG_TRACE_EXECUTION :: true
+
 disassemble_chunk :: proc(c: ^Chunk, name: string) {
 	fmt.printfln("== %s ==\n", name)
-	for offset := 0; offset < len(c.code); do offset = disassemble_instruction(c, offset)
+	for offset: uint = 0; offset < len(c.code); do offset = disassemble_instruction(c, offset)
 }
 
-disassemble_instruction :: proc(c: ^Chunk, offset: int) -> int {
+disassemble_instruction :: proc(c: ^Chunk, offset: uint) -> uint {
 	fmt.printf("%4d ", offset)
 	if offset > 0 && c.lines[offset] == c.lines[offset - 1] {
 		fmt.printf("   | ")
@@ -18,22 +20,34 @@ disassemble_instruction :: proc(c: ^Chunk, offset: int) -> int {
 	instruction := OpCode(c.code[offset])
 
 	switch instruction {
-	case OpCode.Return:
+
+	case .Return:
 		return simple_instruction("OP_RETURN", offset)
-	case OpCode.Constant:
+	case .Constant:
 		return constant_instruction("OP_CONSTANT", c, offset)
+	case .Negate:
+		return simple_instruction("OP_NEGATE", offset)
+	case .Add:
+		return simple_instruction("OP_ADD", offset)
+	case .Subtract:
+		return simple_instruction("OP_SUBTRACT", offset)
+	case .Multiply:
+		return simple_instruction("OP_MULTIPLY", offset)
+	case .Divide:
+		return simple_instruction("OP_DIVIDE", offset)
 	case:
 		fmt.printf("Unknown opcode %d\n", instruction)
 		return offset + 1
+
 	}
 }
 
-simple_instruction :: proc(name: string, offset: int) -> int {
+simple_instruction :: proc(name: string, offset: uint) -> uint {
 	fmt.println(name)
 	return offset + 1
 }
 
-constant_instruction :: proc(name: string, c: ^Chunk, offset: int) -> int {
+constant_instruction :: proc(name: string, c: ^Chunk, offset: uint) -> uint {
 	constant := c.code[offset + 1]
 	fmt.printf("%-16s %4d '", name, constant)
 	print_value(c.constants[constant])

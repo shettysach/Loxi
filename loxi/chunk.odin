@@ -3,6 +3,11 @@ package loxi
 OpCode :: enum u8 {
 	Return,
 	Constant,
+	Negate,
+	Add,
+	Subtract,
+	Multiply,
+	Divide,
 }
 
 Chunk :: struct {
