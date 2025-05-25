@@ -1,33 +1,62 @@
 package loxi
 
+import "core:fmt"
 import "core:os"
 import "core:strings"
 
-
-import "core:fmt"
-
 main :: proc() {
-	chunk := Chunk{}
+	args := os.args
 
-	constant_0 := add_constant(&chunk, 1.2)
-	write_chunk(&chunk, u8(OpCode.Constant), 123)
-	write_chunk(&chunk, constant_0, 123)
+	if len(args) == 1 {
+		repl()
+	} else if len(args) == 2 {
+		path := args[1]
+		run_file(path)
+	} else {
+		fmt.println("Usage: loxi <file>")
+		os.exit(64)
+	}
 
-	constant_1 := add_constant(&chunk, 3.4)
-	write_chunk(&chunk, u8(OpCode.Constant), 123)
-	write_chunk(&chunk, constant_1, 123)
-
-	write_chunk(&chunk, u8(OpCode.Add), 123)
-
-	constant_2 := add_constant(&chunk, 5.6)
-	write_chunk(&chunk, u8(OpCode.Constant), 123)
-	write_chunk(&chunk, constant_1, 123)
-
-	write_chunk(&chunk, u8(OpCode.Divide), 123)
-	write_chunk(&chunk, u8(OpCode.Negate), 123)
-
-	write_chunk(&chunk, u8(OpCode.Return), 123)
-
-	interpret(&chunk)
 	free_vm()
+}
+
+repl :: proc() {
+	fmt.println("ᛚᛟᚲᛁ")
+	buffer: [1024]u8
+	for {
+		fmt.print("-> ")
+		n, err := os.read(os.stdin, buffer[:])
+		if err != nil || n == 0 {
+			fmt.println()
+			break
+		}
+
+		line := buffer[:n]
+
+		switch interpret(&line) {
+		case .CompileError:
+			os.exit(65)
+		case .RuntimeError:
+			os.exit(70)
+		case .Ok:
+		}
+	}
+}
+
+run_file :: proc(path: string) {
+	source, ok := os.read_entire_file(path, context.allocator)
+	defer delete(source, context.allocator)
+
+	if !ok {
+		fmt.println("Failed to read file at path:", path)
+		os.exit(74)
+	}
+
+	switch interpret(&source) {
+	case .CompileError:
+		os.exit(65)
+	case .RuntimeError:
+		os.exit(70)
+	case .Ok:
+	}
 }

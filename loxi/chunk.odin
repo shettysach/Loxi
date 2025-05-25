@@ -32,3 +32,4 @@ add_constant :: proc(c: ^Chunk, value: Value) -> u8 {
 	append_elem(&c.constants, value)
 	return len
 }
+

@@ -23,24 +23,18 @@ InterpretResult :: enum u8 {
 	RuntimeError,
 }
 
-interpret :: proc(c: ^Chunk) -> InterpretResult {
-	vm.chunk = c
-	vm.ip = 0
-	return run()
+interpret :: proc(source: ^[]u8) -> InterpretResult {
+	compile(source)
+
+	// return run()
+	return .Ok
 }
 
 run :: proc() -> InterpretResult {
 	for {
 		if DEBUG_TRACE_EXECUTION {
-			fmt.println()
-			for slot: u8 = 0; slot < vm.stack_top; slot += 1 {
-				fmt.print("[ ")
-				print_value(vm.stack[slot])
-				fmt.println(" ]")
-			}
-			fmt.println()
-
-			disassemble_instruction(vm.chunk, vm.ip)
+			disassemble_stack()
+			_ = disassemble_instruction(vm.chunk, vm.ip)
 		}
 
 		instruction := OpCode(read_byte())
