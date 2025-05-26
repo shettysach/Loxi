@@ -21,10 +21,9 @@ main :: proc() {
 }
 
 repl :: proc() {
-	fmt.println("ᛚᛟᚲᛁ")
 	buffer: [1024]u8
 	for {
-		fmt.print("-> ")
+		fmt.print("> ")
 		n, err := os.read(os.stdin, buffer[:])
 		if err != nil || n == 0 {
 			fmt.println()

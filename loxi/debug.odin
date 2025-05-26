@@ -2,11 +2,13 @@ package loxi
 
 import "core:fmt"
 
-DEBUG_TRACE_EXECUTION :: false
+DEBUG_PRINT_CODE :: true
+DEBUG_TRACE_EXECUTION :: true
 
 disassemble_chunk :: proc(c: ^Chunk, name: string) {
 	fmt.printfln("== %s ==\n", name)
 	for offset: uint = 0; offset < len(c.code); do offset = disassemble_instruction(c, offset)
+	fmt.println()
 }
 
 disassemble_instruction :: proc(c: ^Chunk, offset: uint) -> uint {
@@ -56,11 +58,11 @@ constant_instruction :: proc(name: string, c: ^Chunk, offset: uint) -> uint {
 }
 
 disassemble_stack :: proc() {
-	fmt.println()
+	fmt.println("== bot ==")
 	for slot: u8 = 0; slot < vm.stack_top; slot += 1 {
 		fmt.print("[ ")
 		print_value(vm.stack[slot])
 		fmt.println(" ]")
 	}
-	fmt.println()
+	fmt.println("== top ==\n")
 }

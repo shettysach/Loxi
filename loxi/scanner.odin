@@ -14,8 +14,6 @@ scanner := Scanner{}
 
 init_scanner :: proc(source: ^[]u8) {
 	scanner.source = source
-	scanner.start = 0
-	scanner.current = 0
 	scanner.line = 1
 }
 
@@ -25,7 +23,7 @@ Token :: struct {
 	line:   uint,
 }
 
-TokenType :: enum u8 {
+TokenType :: enum {
 	LeftParen,
 	RightParen,
 	LeftBrace,
@@ -72,6 +70,7 @@ is_at_end :: proc() -> bool {
 	return scanner.current >= len(scanner.source)
 }
 
+@(private = "file")
 advance :: proc() -> rune {
 	ch := scanner.source[scanner.current]
 	scanner.current += 1
@@ -99,8 +98,8 @@ make_token :: proc(ttype: TokenType) -> Token {
 	return Token{ttype = ttype, lexeme = string(scanner.source[scanner.start:scanner.current]), line = scanner.line}
 }
 
-error_token :: proc(msg: string) -> Token {
-	return Token{ttype = .Error, lexeme = msg, line = scanner.line}
+error_token :: proc(message: string) -> Token {
+	return Token{ttype = .Error, lexeme = message, line = scanner.line}
 }
 
 skip_whitespace :: proc() {
@@ -117,7 +116,7 @@ skip_whitespace :: proc() {
 				for peek() != '\n' && !is_at_end() {
 					_ = advance()
 				}
-			}
+			} else {return}
 		case:
 			return
 		}
@@ -218,6 +217,7 @@ identifier_type :: proc() -> TokenType {
 	return .Identifier
 }
 
+@(private = "file")
 number :: proc() -> Token {
 	for unicode.is_digit(peek()) {_ = advance()}
 

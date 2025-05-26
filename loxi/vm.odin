@@ -17,24 +17,30 @@ free_vm :: proc() {
 	free_chunk(vm.chunk)
 }
 
-InterpretResult :: enum u8 {
+InterpretResult :: enum {
 	Ok,
 	CompileError,
 	RuntimeError,
 }
 
 interpret :: proc(source: ^[]u8) -> InterpretResult {
-	compile(source)
+	chunk := Chunk{}
 
-	// return run()
-	return .Ok
+	if !compile(source, &chunk) {
+		return .CompileError
+	}
+
+	vm.chunk = &chunk
+	vm.ip = 0
+
+	return run()
 }
 
 run :: proc() -> InterpretResult {
 	for {
 		if DEBUG_TRACE_EXECUTION {
-			disassemble_stack()
 			_ = disassemble_instruction(vm.chunk, vm.ip)
+			disassemble_stack()
 		}
 
 		instruction := OpCode(read_byte())
@@ -42,7 +48,6 @@ run :: proc() -> InterpretResult {
 		switch instruction {
 
 		case .Return:
-			fmt.println()
 			print_value(pop())
 			fmt.println()
 			return .Ok
@@ -50,30 +55,24 @@ run :: proc() -> InterpretResult {
 		case .Constant:
 			constant := read_constant()
 			push(constant)
-			break
 
 		case .Negate:
 			push(-pop())
-			break
 
 		case .Add:
 			binary_op(add)
-			break
 
 		case .Subtract:
 			binary_op(sub)
-			break
 
 		case .Multiply:
 			binary_op(mul)
-			break
 
 		case .Divide:
 			binary_op(div)
-			break
-
 
 		case:
+
 		}
 	}
 
