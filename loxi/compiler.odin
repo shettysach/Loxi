@@ -7,6 +7,7 @@ compile :: proc(source: ^[]u8, chunk: ^Chunk) -> bool {
 	init_scanner(source)
 	compiling_chunk = chunk
 
+	parser.line = 0
 	parser.had_error = false
 	parser.panic_mode = false
 
@@ -60,6 +61,8 @@ unary :: proc() {
 	parse_precedence(.Unary)
 
 	#partial switch op_type {
+	case .Bang:
+		emit_byte(u8(OpCode.Not))
 	case .Minus:
 		emit_byte(u8(OpCode.Negate))
 	case:
@@ -74,6 +77,18 @@ binary :: proc() {
 	parse_precedence(Precedence(u8(rule.precedence) + 1))
 
 	#partial switch op_type {
+	case .BangEqual:
+		emit_bytes(u8(OpCode.Equal), u8(OpCode.Not))
+	case .EqualEqual:
+		emit_byte(u8(OpCode.Equal))
+	case .Greater:
+		emit_byte(u8(OpCode.Greater))
+	case .GreaterEqual:
+		emit_bytes(u8(OpCode.Less), u8(OpCode.Not))
+	case .Less:
+		emit_byte(u8(OpCode.Less))
+	case .LessEqual:
+		emit_bytes(u8(OpCode.Greater), u8(OpCode.Not))
 	case .Plus:
 		emit_byte(u8(OpCode.Add))
 	case .Minus:
@@ -82,6 +97,21 @@ binary :: proc() {
 		emit_byte(u8(OpCode.Multiply))
 	case .Slash:
 		emit_byte(u8(OpCode.Divide))
+	case:
+		return
+	}
+}
+
+literal :: proc() {
+	op_type := parser.previous.ttype
+
+	#partial switch op_type {
+	case .False:
+		emit_byte(u8(OpCode.False))
+	case .Nil:
+		emit_byte(u8(OpCode.Nil))
+	case .True:
+		emit_byte(u8(OpCode.True))
 	case:
 		return
 	}
@@ -159,17 +189,17 @@ rules := []ParseRule {
 	TokenType.And          = ParseRule{nil, nil, .None},
 	TokenType.Class        = ParseRule{nil, nil, .None},
 	TokenType.Else         = ParseRule{nil, nil, .None},
-	TokenType.False        = ParseRule{nil, nil, .None},
+	TokenType.False        = ParseRule{literal, nil, .None},
 	TokenType.For          = ParseRule{nil, nil, .None},
 	TokenType.Fun          = ParseRule{nil, nil, .None},
 	TokenType.If           = ParseRule{nil, nil, .None},
-	TokenType.Nil          = ParseRule{nil, nil, .None},
+	TokenType.Nil          = ParseRule{literal, nil, .None},
 	TokenType.Or           = ParseRule{nil, nil, .None},
 	TokenType.Print        = ParseRule{nil, nil, .None},
 	TokenType.Return       = ParseRule{nil, nil, .None},
 	TokenType.Super        = ParseRule{nil, nil, .None},
 	TokenType.This         = ParseRule{nil, nil, .None},
-	TokenType.True         = ParseRule{nil, nil, .None},
+	TokenType.True         = ParseRule{literal, nil, .None},
 	TokenType.Var          = ParseRule{nil, nil, .None},
 	TokenType.While        = ParseRule{nil, nil, .None},
 	TokenType.Error        = ParseRule{nil, nil, .None},

@@ -3,6 +3,13 @@ package loxi
 OpCode :: enum {
 	Return,
 	Constant,
+	Nil,
+	True,
+	False,
+	Not,
+	Equal,
+	Greater,
+	Less,
 	Negate,
 	Add,
 	Subtract,

@@ -14,6 +14,8 @@ scanner := Scanner{}
 
 init_scanner :: proc(source: ^[]u8) {
 	scanner.source = source
+	scanner.start = 0
+	scanner.current = 0
 	scanner.line = 1
 }
 
@@ -77,6 +79,7 @@ advance :: proc() -> rune {
 	return rune(ch)
 }
 
+@(private = "file")
 peek :: proc() -> rune {
 	if is_at_end() {return 0}
 	return rune(scanner.source[scanner.current])

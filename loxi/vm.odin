@@ -1,6 +1,7 @@
 package loxi
 
 import "core:fmt"
+import "core:os"
 
 STACK_MAX :: 256
 
@@ -56,20 +57,111 @@ run :: proc() -> InterpretResult {
 			constant := read_constant()
 			push(constant)
 
+		case .Nil:
+			push(nil)
+
+		case .True:
+			push(true)
+
+		case .False:
+			push(false)
+
+		case .Equal:
+			b := pop()
+			a := pop()
+			push(values_equal(a, b))
+
+		case .Greater:
+			b, b_ok := peek(0).(f64)
+			a, a_ok := peek(1).(f64)
+
+			if !b_ok || !a_ok {
+				runtime_error("Operand must be a number.")
+				return .RuntimeError
+			}
+
+			_ = pop()
+			_ = pop()
+			push(a > b)
+
+		case .Less:
+			b, b_ok := peek(0).(f64)
+			a, a_ok := peek(1).(f64)
+
+			if !b_ok || !a_ok {
+				runtime_error("Operand must be a number.")
+				return .RuntimeError
+			}
+
+			_ = pop()
+			_ = pop()
+			push(a < b)
+
+		case .Not:
+			push(is_falsey(pop()))
+
 		case .Negate:
-			push(-pop())
+			v, ok := peek(0).(f64)
+
+			if !ok {
+				runtime_error("Operand must be a number.")
+				return .RuntimeError
+			}
+
+			_ = pop()
+			push(-v)
 
 		case .Add:
-			binary_op(add)
+			b, b_ok := peek(0).(f64)
+			a, a_ok := peek(1).(f64)
+
+			if !b_ok || !a_ok {
+				runtime_error("Operand must be a number.")
+				return .RuntimeError
+			}
+
+			_ = pop()
+			_ = pop()
+			push(a + b)
 
 		case .Subtract:
-			binary_op(sub)
+			b, b_ok := peek(0).(f64)
+			a, a_ok := peek(1).(f64)
+
+			if !b_ok || !a_ok {
+				runtime_error("Operand must be a number.")
+				return .RuntimeError
+			}
+
+			_ = pop()
+			_ = pop()
+			push(a - b)
 
 		case .Multiply:
-			binary_op(mul)
+			b, b_ok := peek(0).(f64)
+			a, a_ok := peek(1).(f64)
+
+			if !b_ok || !a_ok {
+				runtime_error("Operand must be a number.")
+				return .RuntimeError
+			}
+
+			_ = pop()
+			_ = pop()
+			push(a * b)
 
 		case .Divide:
-			binary_op(div)
+			b, b_ok := peek(0).(f64)
+			a, a_ok := peek(1).(f64)
+
+			if !b_ok || !a_ok {
+				runtime_error("Operand must be a number.")
+				return .RuntimeError
+			}
+
+			_ = pop()
+			_ = pop()
+			push(a / b)
 
 		case:
 
@@ -100,13 +192,25 @@ pop :: proc() -> Value {
 	return vm.stack[vm.stack_top]
 }
 
-binary_op :: proc(op: proc(a, b: f64) -> f64) {
-	b := pop()
-	a := pop()
-	push(op(a, b))
+peek :: proc(distance: u8) -> Value {
+	return vm.stack[vm.stack_top - 1 - distance]
 }
 
-add :: proc(a, b: f64) -> f64 {return a + b}
-sub :: proc(a, b: f64) -> f64 {return a - b}
-mul :: proc(a, b: f64) -> f64 {return a * b}
-div :: proc(a, b: f64) -> f64 {return a / b}
+is_falsey :: proc(value: Value) -> bool {
+	v, ok := value.(bool)
+	return value == nil || ok && !v
+}
+
+values_equal :: proc(a, b: Value) -> bool {
+	return a == b
+}
+
+runtime_error :: proc(format: string, args: ..any) {
+	fmt.eprintfln(format, args)
+
+	instruction := vm.ip - 1 // NOTE: ?
+	line := vm.chunk.lines[instruction]
+	fmt.eprintf("[line %d] in script\n", line)
+
+	vm.stack_top = 0
+}

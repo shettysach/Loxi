@@ -2,8 +2,8 @@ package loxi
 
 import "core:fmt"
 
-DEBUG_PRINT_CODE :: true
-DEBUG_TRACE_EXECUTION :: true
+DEBUG_PRINT_CODE :: false
+DEBUG_TRACE_EXECUTION :: false
 
 disassemble_chunk :: proc(c: ^Chunk, name: string) {
 	fmt.printfln("== %s ==\n", name)
@@ -27,6 +27,20 @@ disassemble_instruction :: proc(c: ^Chunk, offset: uint) -> uint {
 		return simple_instruction("OP_RETURN", offset)
 	case .Constant:
 		return constant_instruction("OP_CONSTANT", c, offset)
+	case .Nil:
+		return simple_instruction("OP_NIL", offset)
+	case .True:
+		return simple_instruction("OP_TRUE", offset)
+	case .False:
+		return simple_instruction("OP_FALSE", offset)
+	case .Equal:
+		return simple_instruction("OP_EQUAL", offset)
+	case .Greater:
+		return simple_instruction("OP_GREATER", offset)
+	case .Less:
+		return simple_instruction("OP_LESS", offset)
+	case .Not:
+		return simple_instruction("OP_NOT", offset)
 	case .Negate:
 		return simple_instruction("OP_NEGATE", offset)
 	case .Add:
@@ -58,11 +72,11 @@ constant_instruction :: proc(name: string, c: ^Chunk, offset: uint) -> uint {
 }
 
 disassemble_stack :: proc() {
-	fmt.println("== bot ==")
+	fmt.println("< bot >")
 	for slot: u8 = 0; slot < vm.stack_top; slot += 1 {
 		fmt.print("[ ")
 		print_value(vm.stack[slot])
 		fmt.println(" ]")
 	}
-	fmt.println("== top ==\n")
+	fmt.println("< top >\n")
 }

@@ -5,6 +5,7 @@ import "core:os"
 import "core:strings"
 
 main :: proc() {
+	defer free_vm()
 	args := os.args
 
 	if len(args) == 1 {
@@ -16,8 +17,6 @@ main :: proc() {
 		fmt.println("Usage: loxi <file>")
 		os.exit(64)
 	}
-
-	free_vm()
 }
 
 repl :: proc() {
