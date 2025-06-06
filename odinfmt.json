@@ -1,5 +1,6 @@
 {
-	"character_width": 120,
+    "$schema": "https://raw.githubusercontent.com/DanielGavin/ols/master/misc/odinfmt.schema.json",
+	"character_width": 100,
 	"tabs": true,
-	"tabs_width": 4
+	"tabs_width": 4,
 }

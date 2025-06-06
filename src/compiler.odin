@@ -3,6 +3,17 @@ package loxi
 import "core:fmt"
 import "core:strconv"
 
+Parser :: struct {
+	current:    Token,
+	previous:   Token,
+	line:       uint,
+	had_error:  bool,
+	panic_mode: bool,
+}
+
+parser := Parser{}
+compiling_chunk := &Chunk{}
+
 compile :: proc(source: ^[]u8, chunk: ^Chunk) -> bool {
 	init_scanner(source)
 	compiling_chunk = chunk
@@ -29,17 +40,6 @@ end_compiler :: proc() {
 	}
 }
 
-Parser :: struct {
-	current:    Token,
-	previous:   Token,
-	line:       uint,
-	had_error:  bool,
-	panic_mode: bool,
-}
-
-parser := Parser{}
-compiling_chunk := &Chunk{}
-
 expression :: proc() {
 	parse_precedence(.Assignment)
 }
@@ -53,6 +53,13 @@ grouping :: proc() {
 number :: proc() {
 	value := strconv.atof(parser.previous.lexeme)
 	emit_constant(value)
+}
+
+string_parse :: proc() {
+	lexeme := parser.previous.lexeme
+	trimmed := lexeme[1:len(lexeme) - 1]
+	object := cast(^Obj)copy_string(trimmed)
+	emit_constant(Value(object))
 }
 
 unary :: proc() {
@@ -184,7 +191,7 @@ rules := []ParseRule {
 	TokenType.Less         = ParseRule{nil, binary, .Comparison},
 	TokenType.LessEqual    = ParseRule{nil, binary, .Comparison},
 	TokenType.Identifier   = ParseRule{nil, binary, .Comparison},
-	TokenType.String       = ParseRule{nil, nil, .None},
+	TokenType.String       = ParseRule{string_parse, nil, .None},
 	TokenType.Number       = ParseRule{number, nil, .None},
 	TokenType.And          = ParseRule{nil, nil, .None},
 	TokenType.Class        = ParseRule{nil, nil, .None},
@@ -255,15 +262,15 @@ make_constant :: proc(value: Value) -> u8 {
 
 }
 
-current_chunk :: proc() -> ^Chunk {
+current_chunk :: #force_inline proc() -> ^Chunk {
 	return compiling_chunk
 }
 
-error_at_previous :: proc(msg: string) {
+error_at_previous :: #force_inline proc(msg: string) {
 	error_at(&parser.previous, msg)
 }
 
-error_at_current :: proc(msg: string) {
+error_at_current :: #force_inline proc(msg: string) {
 	error_at(&parser.current, msg)
 }
 

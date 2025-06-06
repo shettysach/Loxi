@@ -2,6 +2,7 @@ package loxi
 
 import "core:fmt"
 import "core:os"
+import "core:strings"
 
 STACK_MAX :: 256
 
@@ -9,13 +10,29 @@ VirtMach :: struct {
 	chunk:     ^Chunk,
 	stack:     [STACK_MAX]Value,
 	stack_top: u8,
+	objects:   ^Obj,
 	ip:        uint,
 }
 
 vm := VirtMach{}
 
 free_vm :: proc() {
-	free_chunk(vm.chunk)
+	if vm.chunk != nil {
+		free_chunk(vm.chunk)
+		vm.chunk = nil
+	}
+
+	free_objects()
+}
+
+free_objects :: proc() {
+	obj := vm.objects
+
+	for obj != nil {
+		next := obj.next
+		free_object(obj)
+		obj = next
+	}
 }
 
 InterpretResult :: enum {
@@ -25,13 +42,13 @@ InterpretResult :: enum {
 }
 
 interpret :: proc(source: ^[]u8) -> InterpretResult {
-	chunk := Chunk{}
+	chunk := new(Chunk)
 
-	if !compile(source, &chunk) {
+	if !compile(source, chunk) {
 		return .CompileError
 	}
 
-	vm.chunk = &chunk
+	vm.chunk = chunk
 	vm.ip = 0
 
 	return run()
@@ -58,7 +75,7 @@ run :: proc() -> InterpretResult {
 			push(constant)
 
 		case .Nil:
-			push(nil)
+			push(Nil{})
 
 		case .True:
 			push(true)
@@ -112,24 +129,35 @@ run :: proc() -> InterpretResult {
 			push(-v)
 
 		case .Add:
-			b, b_ok := peek(0).(f64)
-			a, a_ok := peek(1).(f64)
-
-			if !b_ok || !a_ok {
-				runtime_error("Operand must be a number.")
-				return .RuntimeError
+			#partial switch b in peek(0) {
+			case f64:
+				#partial switch a in peek(1) {
+				case f64:
+					_ = pop()
+					_ = pop()
+					push(a + b)
+				case:
+					runtime_error("Operands must be numbers or strings")
+				}
+			case ^Obj:
+				#partial switch a in peek(1) {
+				case ^Obj:
+					_ = pop()
+					_ = pop()
+					push(concatenate(a, b))
+				case:
+					runtime_error("Operands must be numbers or strings")
+				}
+			case:
+				runtime_error("Operands must be numbers or strings")
 			}
-
-			_ = pop()
-			_ = pop()
-			push(a + b)
 
 		case .Subtract:
 			b, b_ok := peek(0).(f64)
 			a, a_ok := peek(1).(f64)
 
 			if !b_ok || !a_ok {
-				runtime_error("Operand must be a number.")
+				runtime_error("Operands must be numbers.")
 				return .RuntimeError
 			}
 
@@ -142,7 +170,7 @@ run :: proc() -> InterpretResult {
 			a, a_ok := peek(1).(f64)
 
 			if !b_ok || !a_ok {
-				runtime_error("Operand must be a number.")
+				runtime_error("Operands must be numbers.")
 				return .RuntimeError
 			}
 
@@ -155,7 +183,7 @@ run :: proc() -> InterpretResult {
 			a, a_ok := peek(1).(f64)
 
 			if !b_ok || !a_ok {
-				runtime_error("Operand must be a number.")
+				runtime_error("Operands must be numbers.")
 				return .RuntimeError
 			}
 
@@ -198,11 +226,29 @@ peek :: proc(distance: u8) -> Value {
 
 is_falsey :: proc(value: Value) -> bool {
 	v, ok := value.(bool)
-	return value == nil || ok && !v
+	return value == Nil{} || ok && !v
 }
 
-values_equal :: proc(a, b: Value) -> bool {
-	return a == b
+concatenate :: proc(a, b: ^Obj) -> Value {
+	a_str := (^ObjString)(a).str
+	b_str := (^ObjString)(b).str
+
+	c_str := strings.concatenate({a_str, b_str})
+	c_obj := cast(^Obj)take_string(c_str)
+
+	return c_obj
+}
+
+values_equal :: proc(val_a, val_b: Value) -> bool {
+	a, a_obj := val_a.(^Obj)
+	b, b_obj := val_b.(^Obj)
+
+	if a_obj && b_obj {
+		return (^ObjString)(a).str == (^ObjString)(b).str
+	} else {
+		return val_a == val_b
+	}
+
 }
 
 runtime_error :: proc(format: string, args: ..any) {

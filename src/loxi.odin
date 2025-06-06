@@ -1,5 +1,6 @@
 package loxi
 
+import "core:bytes"
 import "core:fmt"
 import "core:os"
 import "core:strings"
@@ -17,19 +18,23 @@ main :: proc() {
 		fmt.println("Usage: loxi <file>")
 		os.exit(64)
 	}
+
 }
 
 repl :: proc() {
 	buffer: [1024]u8
 	for {
-		fmt.print("> ")
+		fmt.print("-> ")
 		n, err := os.read(os.stdin, buffer[:])
-		if err != nil || n == 0 {
+
+		if err != nil || n == 1 {
 			fmt.println()
 			break
 		}
 
 		line := buffer[:n]
+
+		if bytes.equal(line, {'q', 'u', 'i', 't', 10}) {return}
 
 		switch interpret(&line) {
 		case .CompileError:

@@ -98,7 +98,11 @@ match :: proc(expected: rune) -> bool {
 }
 
 make_token :: proc(ttype: TokenType) -> Token {
-	return Token{ttype = ttype, lexeme = string(scanner.source[scanner.start:scanner.current]), line = scanner.line}
+	return Token {
+		ttype = ttype,
+		lexeme = string(scanner.source[scanner.start:scanner.current]),
+		line = scanner.line,
+	}
 }
 
 error_token :: proc(message: string) -> Token {
@@ -110,16 +114,14 @@ skip_whitespace :: proc() {
 		ch := peek()
 		switch ch {
 		case ' ', '\r', '\t':
-			_ = advance()
+			advance()
 		case '\n':
-			_ = advance()
+			advance()
 			scanner.line += 1
 		case '/':
 			if peek_next() == '/' {
-				for peek() != '\n' && !is_at_end() {
-					_ = advance()
-				}
-			} else {return}
+				for peek() != '\n' && !is_at_end() do advance()
+			} else do return
 		case:
 			return
 		}
@@ -130,12 +132,12 @@ scan_token :: proc() -> Token {
 	skip_whitespace()
 	scanner.start = scanner.current
 
-	if is_at_end() {return make_token(.Eof)}
+	if is_at_end() do return make_token(.Eof)
 
 	ch := advance()
 
-	if unicode.is_letter(ch) {return identifier()}
-	if unicode.is_digit(ch) {return number()}
+	if unicode.is_letter(ch) do return identifier()
+	if unicode.is_digit(ch) do return number()
 
 	switch ch {
 	case '(':
@@ -169,15 +171,13 @@ scan_token :: proc() -> Token {
 	case '>':
 		if match('=') {return make_token(.GreaterEqual)} else {return make_token(.Greater)}
 	case '"':
-		return string_literal()
+		return string_scan()
 	}
 	return error_token("Unexpected character.")
 }
 
 identifier :: proc() -> Token {
-	for unicode.is_letter(peek()) || unicode.is_digit(peek()) {
-		_ = advance()
-	}
+	for unicode.is_letter(peek()) || unicode.is_digit(peek()) do advance()
 	return make_token(identifier_type())
 }
 
@@ -222,24 +222,24 @@ identifier_type :: proc() -> TokenType {
 
 @(private = "file")
 number :: proc() -> Token {
-	for unicode.is_digit(peek()) {_ = advance()}
+	for unicode.is_digit(peek()) do advance()
 
 	if peek() == '.' && unicode.is_digit(peek_next()) {
-		_ = advance()
-		for unicode.is_digit(peek()) {_ = advance()}
+		advance()
+		for unicode.is_digit(peek()) do advance()
 	}
 
 	return make_token(.Number)
 }
 
-string_literal :: proc() -> Token {
+string_scan :: proc() -> Token {
 	for peek() != '"' && !is_at_end() {
-		if peek() == '\n' {scanner.line += 1}
-		_ = advance()
+		if peek() == '\n' do scanner.line += 1
+		advance()
 	}
 
-	if is_at_end() {return error_token("Unterminated string.")}
+	if is_at_end() do return error_token("Unterminated string.")
 
-	_ = advance()
+	advance()
 	return make_token(.String)
 }
