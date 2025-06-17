@@ -27,6 +27,12 @@ disassemble_instruction :: proc(c: ^Chunk, offset: uint) -> uint {
 		return simple_instruction("OP_RETURN", offset)
 	case .Constant:
 		return constant_instruction("OP_CONSTANT", c, offset)
+	case .DefineGlobal:
+		return constant_instruction("OP_DEFINE_GLOBAL", c, offset)
+	case .GetGlobal:
+		return constant_instruction("OP_GET_GLOBAL", c, offset)
+	case .SetGlobal:
+		return constant_instruction("OP_SET_GLOBAL", c, offset)
 	case .Nil:
 		return simple_instruction("OP_NIL", offset)
 	case .True:
@@ -51,6 +57,10 @@ disassemble_instruction :: proc(c: ^Chunk, offset: uint) -> uint {
 		return simple_instruction("OP_MULTIPLY", offset)
 	case .Divide:
 		return simple_instruction("OP_DIVIDE", offset)
+	case .Print:
+		return simple_instruction("OP_PRINT", offset)
+	case .Pop:
+		return simple_instruction("OP_POP", offset)
 	case:
 		fmt.printf("Unknown opcode %d\n", instruction)
 		return offset + 1

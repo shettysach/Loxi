@@ -23,8 +23,10 @@ compile :: proc(source: ^[]u8, chunk: ^Chunk) -> bool {
 	parser.panic_mode = false
 
 	advance()
-	expression()
-	consume(.Eof, "Expect EOF")
+
+	for !match(.Eof) {
+		declaration()
+	}
 
 	end_compiler()
 	return !parser.had_error
@@ -33,10 +35,72 @@ compile :: proc(source: ^[]u8, chunk: ^Chunk) -> bool {
 end_compiler :: proc() {
 	emit_return()
 
-	if DEBUG_PRINT_CODE {
-		if !parser.had_error {
-			disassemble_chunk(current_chunk(), "code")
+	if DEBUG_PRINT_CODE && !parser.had_error {
+		disassemble_chunk(current_chunk(), "code")
+	}
+
+}
+
+declaration :: proc() {
+	if match(.Var) do var_declaration()
+	else do statement()
+
+	if parser.panic_mode do synchronize()
+}
+
+statement :: proc() {
+	if match(.Print) do print_statement()
+	else do expression_statement()
+}
+
+print_statement :: proc() {
+	expression()
+	consume(.Semicolon, "Expect ; after value")
+	emit_byte(u8(OpCode.Print))
+}
+
+expression_statement :: proc() {
+	expression()
+	consume(.Semicolon, "Expect ; after expression")
+	emit_byte(u8(OpCode.Pop))
+}
+
+var_declaration :: proc() {
+	global := parse_variable("Expect variable name.")
+
+	if (match(.Equal)) do expression()
+	else do emit_byte(u8(OpCode.Nil))
+	consume(.Semicolon, "Expect ';' after variable declaration.")
+
+	define_variable(global)
+}
+
+synchronize :: proc() {
+	parser.panic_mode = false
+
+	for parser.current.ttype != .Eof {
+		if parser.previous.ttype != .Semicolon do return
+
+		#partial switch parser.current.ttype {
+		case .Class:
+			return
+		case .Fun:
+			return
+		case .Var:
+			return
+		case .For:
+			return
+		case .If:
+			return
+		case .While:
+			return
+		case .Print:
+			return
+		case .Return:
+			return
 		}
+
+		advance()
 	}
 }
 
@@ -44,25 +108,40 @@ expression :: proc() {
 	parse_precedence(.Assignment)
 }
 
-grouping :: proc() {
+grouping :: proc(can_assign: bool) {
 	expression()
 	consume(.RightParen, "Expect ')' after expression")
 }
 
 @(private = "file")
-number :: proc() {
+number :: proc(can_assign: bool) {
 	value := strconv.atof(parser.previous.lexeme)
 	emit_constant(value)
 }
 
-string_parse :: proc() {
+string_parse :: proc(can_assign: bool) {
 	lexeme := parser.previous.lexeme
 	trimmed := lexeme[1:len(lexeme) - 1]
 	object := cast(^Obj)copy_string(trimmed)
 	emit_constant(Value(object))
 }
 
-unary :: proc() {
+named_variable :: proc(name: ^Token, can_assign: bool) {
+	arg := identifier_constant(name)
+
+	if can_assign && match(.Equal) {
+		expression()
+		emit_bytes(u8(OpCode.SetGlobal), arg)
+	} else {
+		emit_bytes(u8(OpCode.GetGlobal), arg)
+	}
+}
+
+variable :: proc(can_assign: bool) {
+	named_variable(&parser.previous, can_assign)
+}
+
+unary :: proc(can_assign: bool) {
 	op_type := parser.previous.ttype
 
 	parse_precedence(.Unary)
@@ -77,7 +156,7 @@ unary :: proc() {
 	}
 }
 
-binary :: proc() {
+binary :: proc(can_assign: bool) {
 	op_type := parser.previous.ttype
 	rule := get_rule(op_type)
 
@@ -109,7 +188,7 @@ binary :: proc() {
 	}
 }
 
-literal :: proc() {
+literal :: proc(can_assign: bool) {
 	op_type := parser.previous.ttype
 
 	#partial switch op_type {
@@ -145,7 +224,7 @@ ParseRule :: struct {
 	precedence: Precedence,
 }
 
-ParseFn :: proc()
+ParseFn :: proc(can_assign: bool)
 
 parse_precedence :: proc(precedence: Precedence) {
 	advance()
@@ -156,12 +235,17 @@ parse_precedence :: proc(precedence: Precedence) {
 		return
 	}
 
-	prefix_rule()
+	can_assign := precedence <= .Assignment
+	prefix_rule(can_assign)
 
 	for precedence <= get_rule(parser.current.ttype).precedence {
 		advance()
 		infix_rule := get_rule(parser.previous.ttype).infix
-		infix_rule()
+		infix_rule(can_assign)
+	}
+
+	if can_assign && match(.Equal) {
+		error_at_current("Invalid assignment target.")
 	}
 }
 
@@ -190,7 +274,7 @@ rules := []ParseRule {
 	TokenType.GreaterEqual = ParseRule{nil, binary, .Comparison},
 	TokenType.Less         = ParseRule{nil, binary, .Comparison},
 	TokenType.LessEqual    = ParseRule{nil, binary, .Comparison},
-	TokenType.Identifier   = ParseRule{nil, binary, .Comparison},
+	TokenType.Identifier   = ParseRule{variable, nil, .Comparison},
 	TokenType.String       = ParseRule{string_parse, nil, .None},
 	TokenType.Number       = ParseRule{number, nil, .None},
 	TokenType.And          = ParseRule{nil, nil, .None},
@@ -213,6 +297,19 @@ rules := []ParseRule {
 	TokenType.Eof          = ParseRule{nil, nil, .None},
 }
 
+parse_variable :: proc(error_msg: string) -> u8 {
+	consume(.Identifier, error_msg)
+	return identifier_constant(&parser.previous)
+}
+
+define_variable :: proc(global: u8) {
+	emit_bytes(u8(OpCode.DefineGlobal), global)
+}
+
+identifier_constant :: proc(name: ^Token) -> u8 {
+	return make_constant(cast(^Obj)copy_string(name.lexeme))
+}
+
 @(private = "file")
 advance :: proc() {
 	parser.previous = parser.current
@@ -231,6 +328,17 @@ consume :: proc(ttype: TokenType, msg: string) {
 	}
 
 	error_at_current(msg)
+}
+
+@(private = "file")
+match :: proc(ttype: TokenType) -> bool {
+	if !check(ttype) do return false
+	advance()
+	return true
+}
+
+check :: #force_inline proc(ttype: TokenType) -> bool {
+	return parser.current.ttype == ttype
 }
 
 emit_byte :: proc(byte: u8) {
@@ -280,11 +388,8 @@ error_at :: proc(token: ^Token, msg: string) {
 
 	fmt.eprintf("[line %d] Error", token.line)
 
-	if (token.ttype == .Eof) {
-		fmt.eprint(" at end")
-	} else if (token.ttype != .Error) {
-		fmt.eprintf(" at '%s'", token.lexeme)
-	}
+	if (token.ttype == .Eof) do fmt.eprint(" at end")
+	else if (token.ttype != .Error) do fmt.eprintf(" at '%s'", token.lexeme)
 
 	fmt.eprintf(": %s\n", msg)
 	parser.had_error = true

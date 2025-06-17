@@ -3,6 +3,9 @@ package loxi
 OpCode :: enum {
 	Return,
 	Constant,
+	DefineGlobal,
+	GetGlobal,
+	SetGlobal,
 	Nil,
 	True,
 	False,
@@ -15,6 +18,8 @@ OpCode :: enum {
 	Subtract,
 	Multiply,
 	Divide,
+	Print,
+	Pop,
 }
 
 Chunk :: struct {

@@ -90,6 +90,7 @@ peek_next :: proc() -> rune {
 	return rune(scanner.source[scanner.current + 1])
 }
 
+@(private = "file")
 match :: proc(expected: rune) -> bool {
 	if is_at_end() {return false}
 	if rune(scanner.source[scanner.current]) != expected {return false}

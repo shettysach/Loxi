@@ -11,23 +11,28 @@ VirtMach :: struct {
 	stack:     [STACK_MAX]Value,
 	stack_top: u8,
 	objects:   ^Obj,
+	globals:   map[string]Value,
+	strings:   map[string]^ObjString,
 	ip:        uint,
 }
 
-vm := VirtMach{}
+
+vm := VirtMach {
+	globals = make(map[string]Value),
+	strings = make(map[string]^ObjString),
+}
 
 free_vm :: proc() {
 	if vm.chunk != nil {
 		free_chunk(vm.chunk)
 		vm.chunk = nil
 	}
-
+	delete(vm.strings)
 	free_objects()
 }
 
 free_objects :: proc() {
 	obj := vm.objects
-
 	for obj != nil {
 		next := obj.next
 		free_object(obj)
@@ -44,20 +49,17 @@ InterpretResult :: enum {
 interpret :: proc(source: ^[]u8) -> InterpretResult {
 	chunk := new(Chunk)
 
-	if !compile(source, chunk) {
-		return .CompileError
-	}
+	if !compile(source, chunk) do return .CompileError
 
 	vm.chunk = chunk
 	vm.ip = 0
-
 	return run()
 }
 
 run :: proc() -> InterpretResult {
 	for {
 		if DEBUG_TRACE_EXECUTION {
-			_ = disassemble_instruction(vm.chunk, vm.ip)
+			disassemble_instruction(vm.chunk, vm.ip)
 			disassemble_stack()
 		}
 
@@ -66,13 +68,33 @@ run :: proc() -> InterpretResult {
 		switch instruction {
 
 		case .Return:
-			print_value(pop())
-			fmt.println()
 			return .Ok
 
 		case .Constant:
 			constant := read_constant()
 			push(constant)
+
+		case .DefineGlobal:
+			name := read_string()
+			vm.globals[name] = peek(0)
+			pop()
+
+		case .GetGlobal:
+			name := read_string()
+			value, ok := vm.globals[name]
+			if !ok {
+				runtime_error("Undefined variable '%s'.", name)
+				return .RuntimeError
+			}
+			push(value)
+
+		case .SetGlobal:
+			name := read_string()
+			if !(name in vm.globals) {
+				runtime_error("Undefined variable '%s'.", name)
+				return .RuntimeError
+			}
+			vm.globals[name] = peek(0)
 
 		case .Nil:
 			push(Nil{})
@@ -97,8 +119,8 @@ run :: proc() -> InterpretResult {
 				return .RuntimeError
 			}
 
-			_ = pop()
-			_ = pop()
+			pop()
+			pop()
 			push(a > b)
 
 		case .Less:
@@ -110,8 +132,8 @@ run :: proc() -> InterpretResult {
 				return .RuntimeError
 			}
 
-			_ = pop()
-			_ = pop()
+			pop()
+			pop()
 			push(a < b)
 
 		case .Not:
@@ -125,32 +147,32 @@ run :: proc() -> InterpretResult {
 				return .RuntimeError
 			}
 
-			_ = pop()
+			pop()
 			push(-v)
 
 		case .Add:
-			#partial switch b in peek(0) {
-			case f64:
-				#partial switch a in peek(1) {
-				case f64:
-					_ = pop()
-					_ = pop()
-					push(a + b)
-				case:
-					runtime_error("Operands must be numbers or strings")
-				}
-			case ^Obj:
-				#partial switch a in peek(1) {
-				case ^Obj:
-					_ = pop()
-					_ = pop()
-					push(concatenate(a, b))
-				case:
-					runtime_error("Operands must be numbers or strings")
-				}
-			case:
-				runtime_error("Operands must be numbers or strings")
+			b, b_ok := peek(0).(f64)
+			a, a_ok := peek(1).(f64)
+
+			if a_ok && b_ok {
+				pop()
+				pop()
+				push(a + b)
+				break
 			}
+
+			b_obj, b_obj_ok := peek(0).(^Obj)
+			a_obj, a_obj_ok := peek(1).(^Obj)
+
+			if a_obj_ok && b_obj_ok && a_obj.type == .ObjString && b_obj.type == .ObjString {
+				pop()
+				pop()
+				push(concatenate(a_obj, b_obj))
+				break
+			}
+
+			runtime_error("Operands must be numbers or strings")
+			return .RuntimeError
 
 		case .Subtract:
 			b, b_ok := peek(0).(f64)
@@ -161,8 +183,8 @@ run :: proc() -> InterpretResult {
 				return .RuntimeError
 			}
 
-			_ = pop()
-			_ = pop()
+			pop()
+			pop()
 			push(a - b)
 
 		case .Multiply:
@@ -174,8 +196,8 @@ run :: proc() -> InterpretResult {
 				return .RuntimeError
 			}
 
-			_ = pop()
-			_ = pop()
+			pop()
+			pop()
 			push(a * b)
 
 		case .Divide:
@@ -187,12 +209,16 @@ run :: proc() -> InterpretResult {
 				return .RuntimeError
 			}
 
-			_ = pop()
-			_ = pop()
+			pop()
+			pop()
 			push(a / b)
 
-		case:
+		case .Print:
+			print_value(pop())
+			fmt.println()
 
+		case .Pop:
+			pop()
 		}
 	}
 
@@ -208,6 +234,12 @@ read_byte :: proc() -> u8 {
 
 read_constant :: proc() -> Value {
 	return vm.chunk.constants[read_byte()]
+}
+
+read_string :: proc() -> string {
+	obj := read_constant().(^Obj)
+	str := (^ObjString)(obj).str
+	return str
 }
 
 push :: proc(v: Value) {
@@ -243,12 +275,8 @@ values_equal :: proc(val_a, val_b: Value) -> bool {
 	a, a_obj := val_a.(^Obj)
 	b, b_obj := val_b.(^Obj)
 
-	if a_obj && b_obj {
-		return (^ObjString)(a).str == (^ObjString)(b).str
-	} else {
-		return val_a == val_b
-	}
-
+	if a_obj && b_obj do return a == b
+	else do return val_a == val_b
 }
 
 runtime_error :: proc(format: string, args: ..any) {
