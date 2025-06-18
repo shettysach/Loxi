@@ -6,6 +6,8 @@ OpCode :: enum {
 	DefineGlobal,
 	GetGlobal,
 	SetGlobal,
+	GetLocal,
+	SetLocal,
 	Nil,
 	True,
 	False,

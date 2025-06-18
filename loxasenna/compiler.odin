@@ -11,16 +11,48 @@ Parser :: struct {
 	panic_mode: bool,
 }
 
+ParseRule :: struct {
+	prefix:     ParseFn,
+	infix:      ParseFn,
+	precedence: Precedence,
+}
+
+ParseFn :: proc(can_assign: bool)
+
+Precedence :: enum {
+	None,
+	Assignment,
+	Or,
+	And,
+	Equality,
+	Comparison,
+	Term,
+	Factor,
+	Unary,
+	Call,
+	Primary,
+}
+
+Compiler :: struct {
+	locals:      [256]Local,
+	local_count: u8,
+	scope_depth: u8,
+}
+
+Local :: struct {
+	name:  Token,
+	depth: Maybe(u8),
+}
+
 parser := Parser{}
+compiler := Compiler{}
 compiling_chunk := &Chunk{}
 
 compile :: proc(source: ^[]u8, chunk: ^Chunk) -> bool {
 	init_scanner(source)
+	compiler = Compiler{}
 	compiling_chunk = chunk
-
-	parser.line = 0
-	parser.had_error = false
-	parser.panic_mode = false
+	parser = Parser{}
 
 	advance()
 
@@ -41,6 +73,20 @@ end_compiler :: proc() {
 
 }
 
+begin_scope :: #force_inline proc() {
+	compiler.scope_depth += 1
+}
+
+end_scope :: proc() {
+	compiler.scope_depth -= 1
+
+	for compiler.local_count > 0 &&
+	    compiler.locals[compiler.local_count - 1].depth.(u8) > compiler.scope_depth {
+		emit_byte(u8(OpCode.Pop))
+		compiler.local_count -= 1
+	}
+}
+
 declaration :: proc() {
 	if match(.Var) do var_declaration()
 	else do statement()
@@ -50,7 +96,11 @@ declaration :: proc() {
 
 statement :: proc() {
 	if match(.Print) do print_statement()
-	else do expression_statement()
+	else if match(.LeftBrace) {
+		begin_scope()
+		block()
+		end_scope()
+	} else do expression_statement()
 }
 
 print_statement :: proc() {
@@ -108,6 +158,11 @@ expression :: proc() {
 	parse_precedence(.Assignment)
 }
 
+block :: proc() {
+	for !check(.RightBrace) && !check(.Eof) do declaration()
+	consume(.RightBrace, "Expect '}' after block.")
+}
+
 grouping :: proc(can_assign: bool) {
 	expression()
 	consume(.RightParen, "Expect ')' after expression")
@@ -127,13 +182,24 @@ string_parse :: proc(can_assign: bool) {
 }
 
 named_variable :: proc(name: ^Token, can_assign: bool) {
-	arg := identifier_constant(name)
+	get_op: u8 = 0
+	set_op: u8 = 0
+	arg, ok := resolve_local(&compiler, name)
+
+	if ok {
+		get_op = u8(OpCode.GetLocal)
+		set_op = u8(OpCode.SetLocal)
+	} else {
+		arg := identifier_constant(name)
+		get_op = u8(OpCode.GetGlobal)
+		set_op = u8(OpCode.SetGlobal)
+	}
 
 	if can_assign && match(.Equal) {
 		expression()
-		emit_bytes(u8(OpCode.SetGlobal), arg)
+		emit_bytes(set_op, arg)
 	} else {
-		emit_bytes(u8(OpCode.GetGlobal), arg)
+		emit_bytes(get_op, arg)
 	}
 }
 
@@ -202,29 +268,6 @@ literal :: proc(can_assign: bool) {
 		return
 	}
 }
-
-
-Precedence :: enum {
-	None,
-	Assignment,
-	Or,
-	And,
-	Equality,
-	Comparison,
-	Term,
-	Factor,
-	Unary,
-	Call,
-	Primary,
-}
-
-ParseRule :: struct {
-	prefix:     ParseFn,
-	infix:      ParseFn,
-	precedence: Precedence,
-}
-
-ParseFn :: proc(can_assign: bool)
 
 parse_precedence :: proc(precedence: Precedence) {
 	advance()
@@ -299,15 +342,74 @@ rules := []ParseRule {
 
 parse_variable :: proc(error_msg: string) -> u8 {
 	consume(.Identifier, error_msg)
+
+	declare_variable()
+	if compiler.scope_depth > 0 do return 0
+
 	return identifier_constant(&parser.previous)
 }
 
+mark_initialized :: proc() {
+	compiler.locals[compiler.local_count - 1].depth = compiler.scope_depth
+}
+
 define_variable :: proc(global: u8) {
+	if compiler.scope_depth > 0 {
+		mark_initialized()
+		return
+	}
 	emit_bytes(u8(OpCode.DefineGlobal), global)
 }
 
+declare_variable :: proc() {
+	if compiler.scope_depth == 0 do return
+	name := &parser.previous
+
+	for i in compiler.local_count - 1 ..= 0 {
+		local := &compiler.locals[i]
+		if local.depth != nil && local.depth.(u8) < compiler.scope_depth do break
+		if identifiers_equal(name, &local.name) {
+			error_at_current("Already a variable with this name in this scope.")
+		}
+	}
+
+	add_local(name^)
+}
+
 identifier_constant :: proc(name: ^Token) -> u8 {
-	return make_constant(cast(^Obj)copy_string(name.lexeme))
+	obj := cast(^Obj)copy_string(name.lexeme)
+	val := Value(obj)
+	return make_constant(val)
+}
+
+identifiers_equal :: proc(a: ^Token, b: ^Token) -> bool {
+	return a.lexeme == b.lexeme
+}
+
+resolve_local :: proc(compiler: ^Compiler, name: ^Token) -> (u8, bool) {
+	for i in compiler.local_count - 1 ..= 0 {
+		local := &compiler.locals[i]
+		if identifiers_equal(name, &local.name) {
+			if (local.depth == nil) {
+				error_at_current("Can't read local variable in its own initializer.")
+			}
+			return i, true
+		}
+	}
+
+	return 0, false
+}
+
+add_local :: proc(name: Token) {
+	if compiler.local_count >= 255 {
+		error_at_current("Too many local variables in the function.")
+		return
+	}
+
+	local := &compiler.locals[compiler.local_count]
+	compiler.local_count += 1
+	local.name = name
+	local.depth = nil
 }
 
 @(private = "file")

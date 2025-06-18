@@ -27,6 +27,7 @@ free_vm :: proc() {
 		free_chunk(vm.chunk)
 		vm.chunk = nil
 	}
+	delete(vm.globals)
 	delete(vm.strings)
 	free_objects()
 }
@@ -95,6 +96,14 @@ run :: proc() -> InterpretResult {
 				return .RuntimeError
 			}
 			vm.globals[name] = peek(0)
+
+		case .GetLocal:
+			slot := read_byte()
+			push(vm.stack[slot])
+
+		case .SetLocal:
+			slot := read_byte()
+			vm.stack[slot] = peek(0)
 
 		case .Nil:
 			push(Nil{})
