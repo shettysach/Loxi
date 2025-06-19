@@ -2,6 +2,9 @@ package loxi
 
 OpCode :: enum {
 	Return,
+	Jump,
+	JumpIfFalse,
+	Loop,
 	Constant,
 	DefineGlobal,
 	GetGlobal,

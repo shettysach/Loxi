@@ -82,7 +82,7 @@ end_scope :: proc() {
 
 	for compiler.local_count > 0 &&
 	    compiler.locals[compiler.local_count - 1].depth.(u8) > compiler.scope_depth {
-		emit_byte(u8(OpCode.Pop))
+		emit_code(OpCode.Pop)
 		compiler.local_count -= 1
 	}
 }
@@ -95,31 +95,122 @@ declaration :: proc() {
 }
 
 statement :: proc() {
-	if match(.Print) do print_statement()
-	else if match(.LeftBrace) {
+	if match(.Print) {
+		print_statement()
+	} else if match(.If) {
+		if_statement()
+	} else if match(.While) {
+		while_statement()
+	} else if match(.For) {
+		for_statement()
+	} else if match(.LeftBrace) {
 		begin_scope()
 		block()
 		end_scope()
-	} else do expression_statement()
+	} else {
+		expression_statement()
+	}
 }
 
 print_statement :: proc() {
 	expression()
 	consume(.Semicolon, "Expect ; after value")
-	emit_byte(u8(OpCode.Print))
+	emit_code(OpCode.Print)
 }
 
 expression_statement :: proc() {
 	expression()
 	consume(.Semicolon, "Expect ; after expression")
-	emit_byte(u8(OpCode.Pop))
+	emit_code(OpCode.Pop)
+}
+
+if_statement :: proc() {
+	consume(.LeftParen, "Expect '(' after 'if'.")
+	expression()
+	consume(.RightParen, "Expect ')' after condition.")
+
+	then_jump := emit_jump(OpCode.JumpIfFalse)
+	emit_code(OpCode.Pop)
+	statement()
+
+	else_jump := emit_jump(OpCode.Jump)
+
+	patch_jump(then_jump)
+
+	if match(.Else) do statement()
+	patch_jump(else_jump)
+}
+
+while_statement :: proc() {
+	loop_start := len(current_chunk().code)
+	consume(.LeftParen, "Expect '(' after 'while'.")
+	expression()
+	consume(.RightParen, "Expect ')' after condition.")
+
+	exit_jump := emit_jump(OpCode.JumpIfFalse)
+	emit_code(OpCode.Pop)
+	statement()
+
+	emit_loop(loop_start)
+
+	patch_jump(exit_jump)
+	emit_code(OpCode.Pop)
+}
+
+for_statement :: proc() {
+	begin_scope()
+	consume(.LeftParen, "Expect '(' after 'for'.")
+
+	if match(.Semicolon) {
+		// No initiaizer
+	} else if match(.Var) {
+		var_declaration()
+	} else {
+		expression_statement()
+	}
+
+	loop_start := len(current_chunk().code)
+	// consume(.Semicolon, "Expect ';'.")
+
+	exit_jump: Maybe(uint) = nil
+	if !match(.Semicolon) {
+		expression()
+		consume(.Semicolon, "Expect ';' after loop condition.")
+
+		exit_jump = emit_jump(OpCode.JumpIfFalse)
+		emit_code(.Pop)
+	}
+	// consume(.Semicolon, "Expect ';'.")
+	// consume(.LeftParen, "Expect ')' after for clauses.")
+
+	if !match(.RightParen) {
+		body_jump := emit_jump(OpCode.Jump)
+		increment_start := len(current_chunk().code)
+		expression()
+		emit_code(.Pop)
+		consume(.RightParen, "Expect ')' after for clauses.")
+
+		emit_loop(loop_start)
+		loop_start = increment_start
+		patch_jump(body_jump)
+	}
+
+	statement()
+	emit_loop(loop_start)
+
+	if jump, ok := exit_jump.(uint); ok {
+		patch_jump(jump)
+		emit_code(OpCode.Pop)
+	}
+
+	end_scope()
 }
 
 var_declaration :: proc() {
 	global := parse_variable("Expect variable name.")
 
 	if (match(.Equal)) do expression()
-	else do emit_byte(u8(OpCode.Nil))
+	else do emit_code(OpCode.Nil)
 	consume(.Semicolon, "Expect ';' after variable declaration.")
 
 	define_variable(global)
@@ -214,9 +305,9 @@ unary :: proc(can_assign: bool) {
 
 	#partial switch op_type {
 	case .Bang:
-		emit_byte(u8(OpCode.Not))
+		emit_code(OpCode.Not)
 	case .Minus:
-		emit_byte(u8(OpCode.Negate))
+		emit_code(OpCode.Negate)
 	case:
 		return
 	}
@@ -232,23 +323,23 @@ binary :: proc(can_assign: bool) {
 	case .BangEqual:
 		emit_bytes(u8(OpCode.Equal), u8(OpCode.Not))
 	case .EqualEqual:
-		emit_byte(u8(OpCode.Equal))
+		emit_code(OpCode.Equal)
 	case .Greater:
-		emit_byte(u8(OpCode.Greater))
+		emit_code(OpCode.Greater)
 	case .GreaterEqual:
 		emit_bytes(u8(OpCode.Less), u8(OpCode.Not))
 	case .Less:
-		emit_byte(u8(OpCode.Less))
+		emit_code(OpCode.Less)
 	case .LessEqual:
 		emit_bytes(u8(OpCode.Greater), u8(OpCode.Not))
 	case .Plus:
-		emit_byte(u8(OpCode.Add))
+		emit_code(OpCode.Add)
 	case .Minus:
-		emit_byte(u8(OpCode.Subtract))
+		emit_code(OpCode.Subtract)
 	case .Star:
-		emit_byte(u8(OpCode.Multiply))
+		emit_code(OpCode.Multiply)
 	case .Slash:
-		emit_byte(u8(OpCode.Divide))
+		emit_code(OpCode.Divide)
 	case:
 		return
 	}
@@ -259,11 +350,11 @@ literal :: proc(can_assign: bool) {
 
 	#partial switch op_type {
 	case .False:
-		emit_byte(u8(OpCode.False))
+		emit_code(OpCode.False)
 	case .Nil:
-		emit_byte(u8(OpCode.Nil))
+		emit_code(OpCode.Nil)
 	case .True:
-		emit_byte(u8(OpCode.True))
+		emit_code(OpCode.True)
 	case:
 		return
 	}
@@ -320,7 +411,7 @@ rules := []ParseRule {
 	TokenType.Identifier   = ParseRule{variable, nil, .Comparison},
 	TokenType.String       = ParseRule{string_parse, nil, .None},
 	TokenType.Number       = ParseRule{number, nil, .None},
-	TokenType.And          = ParseRule{nil, nil, .None},
+	TokenType.And          = ParseRule{nil, and_parse, .And},
 	TokenType.Class        = ParseRule{nil, nil, .None},
 	TokenType.Else         = ParseRule{nil, nil, .None},
 	TokenType.False        = ParseRule{literal, nil, .None},
@@ -328,7 +419,7 @@ rules := []ParseRule {
 	TokenType.Fun          = ParseRule{nil, nil, .None},
 	TokenType.If           = ParseRule{nil, nil, .None},
 	TokenType.Nil          = ParseRule{literal, nil, .None},
-	TokenType.Or           = ParseRule{nil, nil, .None},
+	TokenType.Or           = ParseRule{nil, or_parse, .Or},
 	TokenType.Print        = ParseRule{nil, nil, .None},
 	TokenType.Return       = ParseRule{nil, nil, .None},
 	TokenType.Super        = ParseRule{nil, nil, .None},
@@ -374,6 +465,26 @@ declare_variable :: proc() {
 	}
 
 	add_local(name^)
+}
+
+and_parse :: proc(can_assign: bool) {
+	end_jump := emit_jump(OpCode.JumpIfFalse)
+
+	emit_code(OpCode.Pop)
+	parse_precedence(.And)
+
+	patch_jump(end_jump)
+}
+
+or_parse :: proc(can_assign: bool) {
+	else_jump := emit_jump(OpCode.JumpIfFalse)
+	end_jump := emit_jump(OpCode.Jump)
+
+	patch_jump(else_jump)
+	emit_code(OpCode.Pop)
+
+	parse_precedence(.Or)
+	patch_jump(end_jump)
 }
 
 identifier_constant :: proc(name: ^Token) -> u8 {
@@ -447,8 +558,12 @@ emit_byte :: proc(byte: u8) {
 	write_chunk(current_chunk(), byte, parser.previous.line)
 }
 
+emit_code :: proc(opcode: OpCode) {
+	write_chunk(current_chunk(), u8(opcode), parser.previous.line)
+}
+
 emit_return :: proc() {
-	emit_byte(u8(OpCode.Return))
+	emit_code(OpCode.Return)
 }
 
 emit_bytes :: proc(byte1, byte2: u8) {
@@ -460,6 +575,35 @@ emit_constant :: proc(value: Value) {
 	emit_bytes(u8(OpCode.Constant), make_constant(value))
 }
 
+emit_loop :: proc(loop_start: int) {
+	emit_code(OpCode.Loop)
+
+	offset := len(current_chunk().code) - loop_start + 2
+	if offset > 0xffff do error_at_current("Loop body too large")
+
+	emit_byte(u8(offset >> 8) & 0xff)
+	emit_byte(u8(offset) & 0xff)
+}
+
+
+emit_jump :: proc(instruction: OpCode) -> uint {
+	emit_code(instruction)
+	emit_byte(0xff)
+	emit_byte(0xff)
+	return len(current_chunk().code) - 2
+}
+
+patch_jump :: proc(offset: uint) {
+	jump := cast(uint)len(current_chunk().code) - offset - 2
+
+	if jump > 0xffff {
+		error_at_current("Too much code to jump over.")
+	}
+
+	current_chunk().code[offset] = u8((jump >> 8) & 0xff)
+	current_chunk().code[offset + 1] = u8(jump & 0xff)
+}
+
 make_constant :: proc(value: Value) -> u8 {
 	constant := add_constant(current_chunk(), value)
 
@@ -469,19 +613,10 @@ make_constant :: proc(value: Value) -> u8 {
 	}
 
 	return constant
-
 }
 
 current_chunk :: #force_inline proc() -> ^Chunk {
 	return compiling_chunk
-}
-
-error_at_previous :: #force_inline proc(msg: string) {
-	error_at(&parser.previous, msg)
-}
-
-error_at_current :: #force_inline proc(msg: string) {
-	error_at(&parser.current, msg)
 }
 
 error_at :: proc(token: ^Token, msg: string) {
@@ -495,4 +630,12 @@ error_at :: proc(token: ^Token, msg: string) {
 
 	fmt.eprintf(": %s\n", msg)
 	parser.had_error = true
+}
+
+error_at_previous :: #force_inline proc(msg: string) {
+	error_at(&parser.previous, msg)
+}
+
+error_at_current :: #force_inline proc(msg: string) {
+	error_at(&parser.current, msg)
 }

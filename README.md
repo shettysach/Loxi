@@ -5,7 +5,7 @@ Lox bytecode interpreter in Odin
 ## Build
 
 ```sh
-odin build loxasenna -o:speed -out:loxi.bin
+odin build loxi -o:speed
 ```
 
 ## Run

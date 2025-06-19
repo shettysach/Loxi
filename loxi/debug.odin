@@ -25,6 +25,12 @@ disassemble_instruction :: proc(c: ^Chunk, offset: uint) -> uint {
 
 	case .Return:
 		return simple_instruction("OP_RETURN", offset)
+	case .Jump:
+		return jump_instruction("OP_JUMP", true, c, offset)
+	case .JumpIfFalse:
+		return jump_instruction("OP_JUMP_IF_FALSE", true, c, offset)
+	case .Loop:
+		return jump_instruction("OP_LOOP", false, c, offset)
 	case .Constant:
 		return constant_instruction("OP_CONSTANT", c, offset)
 	case .DefineGlobal:
@@ -89,6 +95,18 @@ constant_instruction :: proc(name: string, c: ^Chunk, offset: uint) -> uint {
 	print_value(c.constants[constant])
 	fmt.println("'")
 	return offset + 2
+}
+
+jump_instruction :: proc(name: string, sign: bool, chunk: ^Chunk, offset: uint) -> uint {
+	jump := u16(chunk.code[offset + 1]) << 8
+	jump |= u16(chunk.code[offset + 2])
+	fmt.println(
+		"%-16s %4d -> %d",
+		name,
+		offset,
+		offset + 3 + uint(jump) if sign else offset + 3 - uint(jump),
+	)
+	return offset + 3
 }
 
 disassemble_stack :: proc() {

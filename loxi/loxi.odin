@@ -24,11 +24,10 @@ main :: proc() {
 repl :: proc() {
 	buffer: [1024]u8
 	for {
-		fmt.print("-> ")
+		fmt.print("> ")
 		n, err := os.read(os.stdin, buffer[:])
 
 		if err != nil || n == 1 {
-			fmt.println()
 			break
 		}
 

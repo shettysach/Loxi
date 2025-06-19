@@ -71,6 +71,18 @@ run :: proc() -> InterpretResult {
 		case .Return:
 			return .Ok
 
+		case .Jump:
+			offset := read_short()
+			vm.ip += uint(offset)
+
+		case .JumpIfFalse:
+			offset := read_short()
+			if is_falsey(peek(0)) do vm.ip += uint(offset)
+
+		case .Loop:
+			offset := read_short()
+			vm.ip -= uint(offset)
+
 		case .Constant:
 			constant := read_constant()
 			push(constant)
@@ -239,6 +251,13 @@ read_byte :: proc() -> u8 {
 	byte := vm.chunk.code[vm.ip]
 	vm.ip += 1
 	return byte
+}
+
+read_short :: proc() -> u16 {
+	ip := vm.ip
+	vm.ip += 2
+	code := vm.chunk.code
+	return u16(code[ip]) << 8 | u16(code[ip + 1])
 }
 
 read_constant :: proc() -> Value {
