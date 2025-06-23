@@ -1,32 +1,43 @@
 package loxi
 
 import "core:fmt"
+import "core:mem"
 import "core:os"
 import "core:strings"
 
-STACK_MAX :: 256
+FRAMES_MAX :: 64
+STACK_MAX :: FRAMES_MAX * 256
 
 VirtMach :: struct {
-	chunk:     ^Chunk,
-	stack:     [STACK_MAX]Value,
-	stack_top: u8,
-	objects:   ^Obj,
-	globals:   map[string]Value,
-	strings:   map[string]^ObjString,
-	ip:        uint,
+	frames:      [FRAMES_MAX]CallFrame,
+	frame_count: u8,
+	stack:       [STACK_MAX]Value,
+	stack_top:   ^Value,
+	objects:     ^Obj,
+	globals:     map[string]Value,
+	strings:     map[string]^ObjString,
 }
 
+CallFrame :: struct {
+	function: ^ObjFunction,
+	ip:       uint,
+	slots:    ^Value,
+}
 
-vm := VirtMach {
-	globals = make(map[string]Value),
-	strings = make(map[string]^ObjString),
+vm := VirtMach{}
+
+init_vm :: proc() {
+	reset_stack()
+	vm.globals = make(map[string]Value)
+	vm.strings = make(map[string]^ObjString)
+}
+
+reset_stack :: #force_inline proc() {
+	vm.stack_top = &vm.stack[0]
+	vm.frame_count = 0
 }
 
 free_vm :: proc() {
-	if vm.chunk != nil {
-		free_chunk(vm.chunk)
-		vm.chunk = nil
-	}
 	delete(vm.globals)
 	delete(vm.strings)
 	free_objects()
@@ -48,52 +59,71 @@ InterpretResult :: enum {
 }
 
 interpret :: proc(source: ^[]u8) -> InterpretResult {
-	chunk := new(Chunk)
+	function := compile(source)
 
-	if !compile(source, chunk) do return .CompileError
+	if function == nil do return .CompileError
 
-	vm.chunk = chunk
-	vm.ip = 0
+	push(cast(^Obj)function)
+	call(function, 0)
+
 	return run()
 }
 
 run :: proc() -> InterpretResult {
+	frame := &vm.frames[vm.frame_count - 1]
+
 	for {
 		if DEBUG_TRACE_EXECUTION {
-			disassemble_instruction(vm.chunk, vm.ip)
 			disassemble_stack()
+			disassemble_instruction(&frame.function.chunk, frame.ip)
 		}
 
-		instruction := OpCode(read_byte())
+		instruction := OpCode(read_byte(frame))
 
 		switch instruction {
 
 		case .Return:
-			return .Ok
+			result := pop()
+			vm.frame_count -= 1
+
+			if vm.frame_count == 0 {
+				pop()
+				return .Ok
+			}
+
+			vm.stack_top = frame.slots
+			push(result)
+			frame = &vm.frames[vm.frame_count - 1]
+
+		case .Call:
+			arg_count := read_byte(frame)
+			callee := peek(arg_count)
+			if !call_value(callee, arg_count) do return .RuntimeError
+			frame = &vm.frames[vm.frame_count - 1]
 
 		case .Jump:
-			offset := read_short()
-			vm.ip += uint(offset)
+			offset := read_short(frame)
+			frame.ip += uint(offset)
 
 		case .JumpIfFalse:
-			offset := read_short()
-			if is_falsey(peek(0)) do vm.ip += uint(offset)
+			offset := read_short(frame)
+			if is_falsey(peek(0)) do frame.ip += uint(offset)
 
 		case .Loop:
-			offset := read_short()
-			vm.ip -= uint(offset)
+			offset := read_short(frame)
+			frame.ip -= uint(offset)
 
 		case .Constant:
-			constant := read_constant()
+			constant := read_constant(frame)
 			push(constant)
 
 		case .DefineGlobal:
-			name := read_string()
+			name := read_string(frame)
 			vm.globals[name] = peek(0)
 			pop()
 
 		case .GetGlobal:
-			name := read_string()
+			name := read_string(frame)
 			value, ok := vm.globals[name]
 			if !ok {
 				runtime_error("Undefined variable '%s'.", name)
@@ -102,7 +132,7 @@ run :: proc() -> InterpretResult {
 			push(value)
 
 		case .SetGlobal:
-			name := read_string()
+			name := read_string(frame)
 			if !(name in vm.globals) {
 				runtime_error("Undefined variable '%s'.", name)
 				return .RuntimeError
@@ -110,12 +140,12 @@ run :: proc() -> InterpretResult {
 			vm.globals[name] = peek(0)
 
 		case .GetLocal:
-			slot := read_byte()
-			push(vm.stack[slot])
+			slot := read_byte(frame)
+			push(mem.ptr_offset(frame.slots, slot)^)
 
 		case .SetLocal:
-			slot := read_byte()
-			vm.stack[slot] = peek(0)
+			slot := read_byte(frame)
+			mem.ptr_offset(frame.slots, slot)^ = peek(0)
 
 		case .Nil:
 			push(Nil{})
@@ -247,41 +277,73 @@ run :: proc() -> InterpretResult {
 }
 
 
-read_byte :: proc() -> u8 {
-	byte := vm.chunk.code[vm.ip]
-	vm.ip += 1
+read_byte :: proc(frame: ^CallFrame) -> u8 {
+	byte := frame.function.chunk.code[frame.ip]
+	frame.ip += 1
 	return byte
 }
 
-read_short :: proc() -> u16 {
-	ip := vm.ip
-	vm.ip += 2
-	code := vm.chunk.code
+read_short :: proc(frame: ^CallFrame) -> u16 {
+	ip := frame.ip
+	frame.ip += 2
+	code := frame.function.chunk.code
 	return u16(code[ip]) << 8 | u16(code[ip + 1])
 }
 
-read_constant :: proc() -> Value {
-	return vm.chunk.constants[read_byte()]
+read_constant :: proc(frame: ^CallFrame) -> Value {
+	return frame.function.chunk.constants[read_byte(frame)]
 }
 
-read_string :: proc() -> string {
-	obj := read_constant().(^Obj)
+read_string :: proc(frame: ^CallFrame) -> string {
+	obj := read_constant(frame).(^Obj)
 	str := (^ObjString)(obj).str
 	return str
 }
 
 push :: proc(v: Value) {
-	vm.stack[vm.stack_top] = v
-	vm.stack_top += 1
+	vm.stack_top^ = v
+	vm.stack_top = mem.ptr_offset(vm.stack_top, 1)
 }
 
 pop :: proc() -> Value {
-	vm.stack_top -= 1
-	return vm.stack[vm.stack_top]
+	vm.stack_top = mem.ptr_offset(vm.stack_top, -1)
+	return vm.stack_top^
 }
 
+@(private = "file")
 peek :: proc(distance: u8) -> Value {
-	return vm.stack[vm.stack_top - 1 - distance]
+	return mem.ptr_offset(vm.stack_top, -i16(distance) - 1)^
+}
+
+call_value :: proc(callee: Value, arg_count: u8) -> bool {
+	if obj, ok := callee.(^Obj); ok {
+		#partial switch obj.type {
+		case .ObjFunction:
+			return call(cast(^ObjFunction)obj, arg_count)
+		}
+	}
+
+	runtime_error("Can only call functions and classes.")
+	return false
+}
+
+call :: proc(fun: ^ObjFunction, arg_count: u8) -> bool {
+	if arg_count != fun.arity {
+		runtime_error("Expected %d arguments but got %d.", fun.arity, arg_count)
+		return false
+	}
+
+	if vm.frame_count == FRAMES_MAX {
+		runtime_error("Stack overflow.")
+		return false
+	}
+
+	frame := &vm.frames[vm.frame_count]
+	vm.frame_count += 1
+	frame.function = fun
+	frame.ip = 0
+	frame.slots = mem.ptr_offset(vm.stack_top, -i16(arg_count) - 1)
+	return true
 }
 
 is_falsey :: proc(value: Value) -> bool {
@@ -308,11 +370,20 @@ values_equal :: proc(val_a, val_b: Value) -> bool {
 }
 
 runtime_error :: proc(format: string, args: ..any) {
-	fmt.eprintfln(format, args)
+	if len(args) == 0 do fmt.eprintfln(format)
+	else do fmt.eprintfln(format, args)
 
-	instruction := vm.ip - 1 // NOTE: ?
-	line := vm.chunk.lines[instruction]
-	fmt.eprintf("[line %d] in script\n", line)
+	for i := vm.frame_count - 1;; i -= 1 {
+		frame := &vm.frames[i]
+		function := frame.function
+		code := frame.function.chunk.code
+		instruction := code[frame.ip - 1]
 
-	vm.stack_top = 0
+		fname := len(function.name) == 0 ? "script" : function.name
+		fmt.eprintfln("[line %d] in %s", function.chunk.lines[instruction], fname)
+
+		if i == 0 do break
+	}
+
+	reset_stack()
 }

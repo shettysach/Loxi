@@ -1,7 +1,8 @@
 package loxi
 
-OpCode :: enum {
+OpCode :: enum u8 {
 	Return,
+	Call,
 	Jump,
 	JumpIfFalse,
 	Loop,
@@ -44,8 +45,8 @@ write_chunk :: proc(c: ^Chunk, byte: u8, line: uint) {
 	append_elem(&c.lines, line)
 }
 
-add_constant :: proc(c: ^Chunk, value: Value) -> u8 {
-	len := u8(len(c.constants))
+add_constant :: proc(c: ^Chunk, value: Value) -> uint {
+	len := uint(len(c.constants))
 	append_elem(&c.constants, value)
 	return len
 }

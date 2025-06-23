@@ -34,9 +34,17 @@ Precedence :: enum {
 }
 
 Compiler :: struct {
+	enclosing:   ^Compiler,
+	function:    ^ObjFunction,
+	ftype:       FunctionType,
 	locals:      [256]Local,
 	local_count: u8,
 	scope_depth: u8,
+}
+
+FunctionType :: enum {
+	Function,
+	Script,
 }
 
 Local :: struct {
@@ -45,13 +53,14 @@ Local :: struct {
 }
 
 parser := Parser{}
-compiler := Compiler{}
-compiling_chunk := &Chunk{}
+current: ^Compiler = nil
 
-compile :: proc(source: ^[]u8, chunk: ^Chunk) -> bool {
+compile :: proc(source: ^[]u8) -> ^ObjFunction {
 	init_scanner(source)
-	compiler = Compiler{}
-	compiling_chunk = chunk
+
+	compiler := Compiler{}
+	init_compiler(&compiler, .Script)
+
 	parser = Parser{}
 
 	advance()
@@ -60,35 +69,55 @@ compile :: proc(source: ^[]u8, chunk: ^Chunk) -> bool {
 		declaration()
 	}
 
-	end_compiler()
-	return !parser.had_error
+	return parser.had_error ? nil : end_compiler()
 }
 
-end_compiler :: proc() {
+init_compiler :: proc(compiler: ^Compiler, type: FunctionType) {
+	compiler.enclosing = current
+	compiler.function = new_function()
+	compiler.ftype = type
+	compiler.local_count = 0
+	compiler.scope_depth = 0
+
+	current = compiler
+
+	if type != .Script do current.function.name = parser.previous.lexeme
+
+	local := &current.locals[current.local_count]
+	current.local_count += 1
+	local.depth = 0
+}
+
+end_compiler :: proc() -> ^ObjFunction {
 	emit_return()
+	function := current.function
 
 	if DEBUG_PRINT_CODE && !parser.had_error {
-		disassemble_chunk(current_chunk(), "code")
+		fname := len(function.name) == 0 ? "script" : function.name
+		disassemble_chunk(current_chunk(), fname)
 	}
 
+	current = current.enclosing
+	return function
 }
 
 begin_scope :: #force_inline proc() {
-	compiler.scope_depth += 1
+	current.scope_depth += 1
 }
 
 end_scope :: proc() {
-	compiler.scope_depth -= 1
+	current.scope_depth -= 1
 
-	for compiler.local_count > 0 &&
-	    compiler.locals[compiler.local_count - 1].depth.(u8) > compiler.scope_depth {
+	for current.local_count > 0 &&
+	    current.locals[current.local_count - 1].depth.(u8) > current.scope_depth {
 		emit_code(OpCode.Pop)
-		compiler.local_count -= 1
+		current.local_count -= 1
 	}
 }
 
 declaration :: proc() {
-	if match(.Var) do var_declaration()
+	if match(.Fun) do function_declaration()
+	else if match(.Var) do var_declaration()
 	else do statement()
 
 	if parser.panic_mode do synchronize()
@@ -99,6 +128,8 @@ statement :: proc() {
 		print_statement()
 	} else if match(.If) {
 		if_statement()
+	} else if match(.Return) {
+		return_statement()
 	} else if match(.While) {
 		while_statement()
 	} else if match(.For) {
@@ -112,16 +143,28 @@ statement :: proc() {
 	}
 }
 
+expression_statement :: proc() {
+	expression()
+	consume(.Semicolon, "Expect ; after expression")
+	emit_code(OpCode.Pop)
+}
+
 print_statement :: proc() {
 	expression()
 	consume(.Semicolon, "Expect ; after value")
 	emit_code(OpCode.Print)
 }
 
-expression_statement :: proc() {
-	expression()
-	consume(.Semicolon, "Expect ; after expression")
-	emit_code(OpCode.Pop)
+return_statement :: proc() {
+	if current.ftype == .Script do error_at_previous("Can't return from top-level code.")
+
+	if match(.Semicolon) {
+		emit_return()
+	} else {
+		expression()
+		consume(.Semicolon, "Expect ';' after return value.")
+		emit_code(.Return)
+	}
 }
 
 if_statement :: proc() {
@@ -142,7 +185,7 @@ if_statement :: proc() {
 }
 
 while_statement :: proc() {
-	loop_start := len(current_chunk().code)
+	loop_start: uint = len(current_chunk().code)
 	consume(.LeftParen, "Expect '(' after 'while'.")
 	expression()
 	consume(.RightParen, "Expect ')' after condition.")
@@ -161,16 +204,11 @@ for_statement :: proc() {
 	begin_scope()
 	consume(.LeftParen, "Expect '(' after 'for'.")
 
-	if match(.Semicolon) {
-		// No initiaizer
-	} else if match(.Var) {
-		var_declaration()
-	} else {
-		expression_statement()
-	}
+	if match(.Semicolon) { 	// No initializer
+	} else if match(.Var) do var_declaration()
+	else do expression_statement()
 
-	loop_start := len(current_chunk().code)
-	// consume(.Semicolon, "Expect ';'.")
+	loop_start: uint = len(current_chunk().code)
 
 	exit_jump: Maybe(uint) = nil
 	if !match(.Semicolon) {
@@ -180,12 +218,10 @@ for_statement :: proc() {
 		exit_jump = emit_jump(OpCode.JumpIfFalse)
 		emit_code(.Pop)
 	}
-	// consume(.Semicolon, "Expect ';'.")
-	// consume(.LeftParen, "Expect ')' after for clauses.")
 
 	if !match(.RightParen) {
 		body_jump := emit_jump(OpCode.Jump)
-		increment_start := len(current_chunk().code)
+		increment_start: uint = len(current_chunk().code)
 		expression()
 		emit_code(.Pop)
 		consume(.RightParen, "Expect ')' after for clauses.")
@@ -209,10 +245,43 @@ for_statement :: proc() {
 var_declaration :: proc() {
 	global := parse_variable("Expect variable name.")
 
-	if (match(.Equal)) do expression()
+	if match(.Equal) do expression()
 	else do emit_code(OpCode.Nil)
 	consume(.Semicolon, "Expect ';' after variable declaration.")
 
+	define_variable(global)
+}
+
+function_statement :: proc(ftype: FunctionType) {
+	compiler := Compiler{}
+	init_compiler(&compiler, .Function)
+	begin_scope()
+
+	consume(.LeftParen, "Expect '(' after function name.")
+
+	if !check(.RightParen) {
+		for {
+			current.function.arity += 1
+			if current.function.arity > 255 do error_at_current("Can't have more than 255 parameters")
+			constant := parse_variable("Expect parameter name")
+			define_variable(constant)
+
+			if !match(.Comma) do break
+		}
+	}
+
+	consume(.RightParen, "Expect ')' after parameters.")
+	consume(.LeftBrace, "Expect '{' before function body.")
+	block()
+
+	function := end_compiler()
+	emit_bytes(u8(OpCode.Constant), make_constant(cast(^Obj)function))
+}
+
+function_declaration :: proc() {
+	global := parse_variable("Expect function name.")
+	mark_initialized()
+	function_statement(.Function)
 	define_variable(global)
 }
 
@@ -275,7 +344,7 @@ string_parse :: proc(can_assign: bool) {
 named_variable :: proc(name: ^Token, can_assign: bool) {
 	get_op: u8 = 0
 	set_op: u8 = 0
-	arg, ok := resolve_local(&compiler, name)
+	arg, ok := resolve_local(current, name).(u8)
 
 	if ok {
 		get_op = u8(OpCode.GetLocal)
@@ -345,6 +414,27 @@ binary :: proc(can_assign: bool) {
 	}
 }
 
+@(private = "file")
+call :: proc(can_assign: bool) {
+	arg_count := argument_list()
+	emit_bytes(u8(OpCode.Call), arg_count)
+}
+
+argument_list :: proc() -> u8 {
+	arg_count: u8 = 0
+	if !check(.RightParen) {
+		for {
+			expression()
+			if current.function.arity > 255 do error_at_current("Can't have more than 255 parameters")
+
+			arg_count += 1
+			if !match(.Comma) do break
+		}
+	}
+	consume(.RightParen, "Expect ')' after arguments.")
+	return arg_count
+}
+
 literal :: proc(can_assign: bool) {
 	op_type := parser.previous.ttype
 
@@ -389,7 +479,7 @@ get_rule :: proc(ttype: TokenType) -> ^ParseRule {
 
 @(rodata)
 rules := []ParseRule {
-	TokenType.LeftParen    = ParseRule{grouping, nil, .None},
+	TokenType.LeftParen    = ParseRule{grouping, call, .Call},
 	TokenType.RightParen   = ParseRule{nil, nil, .None},
 	TokenType.LeftBrace    = ParseRule{nil, nil, .None},
 	TokenType.RightBrace   = ParseRule{nil, nil, .None},
@@ -408,7 +498,7 @@ rules := []ParseRule {
 	TokenType.GreaterEqual = ParseRule{nil, binary, .Comparison},
 	TokenType.Less         = ParseRule{nil, binary, .Comparison},
 	TokenType.LessEqual    = ParseRule{nil, binary, .Comparison},
-	TokenType.Identifier   = ParseRule{variable, nil, .Comparison},
+	TokenType.Identifier   = ParseRule{variable, nil, .None},
 	TokenType.String       = ParseRule{string_parse, nil, .None},
 	TokenType.Number       = ParseRule{number, nil, .None},
 	TokenType.And          = ParseRule{nil, and_parse, .And},
@@ -435,17 +525,18 @@ parse_variable :: proc(error_msg: string) -> u8 {
 	consume(.Identifier, error_msg)
 
 	declare_variable()
-	if compiler.scope_depth > 0 do return 0
+	if current.scope_depth > 0 do return 0
 
 	return identifier_constant(&parser.previous)
 }
 
 mark_initialized :: proc() {
-	compiler.locals[compiler.local_count - 1].depth = compiler.scope_depth
+	if current.scope_depth == 0 do return
+	current.locals[current.local_count - 1].depth = current.scope_depth
 }
 
 define_variable :: proc(global: u8) {
-	if compiler.scope_depth > 0 {
+	if current.scope_depth != 0 {
 		mark_initialized()
 		return
 	}
@@ -453,15 +544,13 @@ define_variable :: proc(global: u8) {
 }
 
 declare_variable :: proc() {
-	if compiler.scope_depth == 0 do return
+	if current.scope_depth == 0 do return
 	name := &parser.previous
 
-	for i in compiler.local_count - 1 ..= 0 {
-		local := &compiler.locals[i]
-		if local.depth != nil && local.depth.(u8) < compiler.scope_depth do break
-		if identifiers_equal(name, &local.name) {
-			error_at_current("Already a variable with this name in this scope.")
-		}
+	for i in current.local_count - 1 ..= 0 {
+		local := &current.locals[i]
+		if local.depth != nil && local.depth.(u8) < current.scope_depth do break
+		if identifiers_equal(name, &local.name) do error_at_previous("Already a variable with this name in this scope.")
 	}
 
 	add_local(name^)
@@ -489,36 +578,35 @@ or_parse :: proc(can_assign: bool) {
 
 identifier_constant :: proc(name: ^Token) -> u8 {
 	obj := cast(^Obj)copy_string(name.lexeme)
-	val := Value(obj)
-	return make_constant(val)
+	return make_constant(obj)
 }
 
 identifiers_equal :: proc(a: ^Token, b: ^Token) -> bool {
 	return a.lexeme == b.lexeme
 }
 
-resolve_local :: proc(compiler: ^Compiler, name: ^Token) -> (u8, bool) {
-	for i in compiler.local_count - 1 ..= 0 {
+resolve_local :: proc(compiler: ^Compiler, name: ^Token) -> Maybe(u8) {
+	for i := compiler.local_count - 1;; i -= 1 {
 		local := &compiler.locals[i]
 		if identifiers_equal(name, &local.name) {
-			if (local.depth == nil) {
-				error_at_current("Can't read local variable in its own initializer.")
-			}
-			return i, true
+			if local.depth == nil do error_at_previous("Can't read local variable in its own initializer.")
+			return i
 		}
+
+		if i == 0 do break
 	}
 
-	return 0, false
+	return nil
 }
 
 add_local :: proc(name: Token) {
-	if compiler.local_count >= 255 {
-		error_at_current("Too many local variables in the function.")
+	if current.local_count >= 255 {
+		error_at_previous("Too many local variables in the function.")
 		return
 	}
 
-	local := &compiler.locals[compiler.local_count]
-	compiler.local_count += 1
+	local := &current.locals[current.local_count]
+	current.local_count += 1
 	local.name = name
 	local.depth = nil
 }
@@ -529,7 +617,7 @@ advance :: proc() {
 
 	for {
 		parser.current = scan_token()
-		if (parser.current.ttype != .Error) {break}
+		if (parser.current.ttype != .Error) do break
 		error_at_current(parser.current.lexeme)
 	}
 }
@@ -563,6 +651,7 @@ emit_code :: proc(opcode: OpCode) {
 }
 
 emit_return :: proc() {
+	emit_code(OpCode.Nil)
 	emit_code(OpCode.Return)
 }
 
@@ -575,11 +664,11 @@ emit_constant :: proc(value: Value) {
 	emit_bytes(u8(OpCode.Constant), make_constant(value))
 }
 
-emit_loop :: proc(loop_start: int) {
+emit_loop :: proc(loop_start: uint) {
 	emit_code(OpCode.Loop)
 
-	offset := len(current_chunk().code) - loop_start + 2
-	if offset > 0xffff do error_at_current("Loop body too large")
+	offset: uint = len(current_chunk().code) - loop_start + 2
+	if offset > 0xffff do error_at_previous("Loop body too large")
 
 	emit_byte(u8(offset >> 8) & 0xff)
 	emit_byte(u8(offset) & 0xff)
@@ -594,29 +683,27 @@ emit_jump :: proc(instruction: OpCode) -> uint {
 }
 
 patch_jump :: proc(offset: uint) {
-	jump := cast(uint)len(current_chunk().code) - offset - 2
+	jump: uint = len(current_chunk().code) - offset - 2
 
-	if jump > 0xffff {
-		error_at_current("Too much code to jump over.")
-	}
+	if jump > 0xffff do error_at_previous("Too much code to jump over.")
 
-	current_chunk().code[offset] = u8((jump >> 8) & 0xff)
+	current_chunk().code[offset] = u8(jump >> 8) & 0xff
 	current_chunk().code[offset + 1] = u8(jump & 0xff)
 }
 
 make_constant :: proc(value: Value) -> u8 {
 	constant := add_constant(current_chunk(), value)
 
-	if constant > max(u8) {
-		error_at_current("Too many constants in 1 chunk.")
+	if constant > 255 {
+		error_at_previous("Too many constants in 1 chunk.")
 		return 0
 	}
 
-	return constant
+	return u8(constant)
 }
 
-current_chunk :: #force_inline proc() -> ^Chunk {
-	return compiling_chunk
+current_chunk :: proc() -> ^Chunk {
+	return &current.function.chunk
 }
 
 error_at :: proc(token: ^Token, msg: string) {

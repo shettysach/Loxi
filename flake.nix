@@ -23,6 +23,7 @@
           buildInputs = with pkgs; [
             odin
             ols
+            lldb
           ];
         };
       }

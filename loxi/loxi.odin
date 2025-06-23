@@ -1,12 +1,15 @@
 package loxi
 
+import "core:bufio"
 import "core:bytes"
 import "core:fmt"
 import "core:os"
 import "core:strings"
 
 main :: proc() {
+	init_vm()
 	defer free_vm()
+
 	args := os.args
 
 	if len(args) == 1 {
@@ -18,11 +21,11 @@ main :: proc() {
 		fmt.println("Usage: loxi <file>")
 		os.exit(64)
 	}
-
 }
 
 repl :: proc() {
 	buffer: [1024]u8
+
 	for {
 		fmt.print("> ")
 		n, err := os.read(os.stdin, buffer[:])
@@ -32,8 +35,6 @@ repl :: proc() {
 		}
 
 		line := buffer[:n]
-
-		if bytes.equal(line, {'q', 'u', 'i', 't', 10}) {return}
 
 		switch interpret(&line) {
 		case .CompileError:

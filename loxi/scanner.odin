@@ -120,9 +120,8 @@ skip_whitespace :: proc() {
 			advance()
 			scanner.line += 1
 		case '/':
-			if peek_next() == '/' {
-				for peek() != '\n' && !is_at_end() do advance()
-			} else do return
+			if peek_next() == '/' do for peek() != '\n' && !is_at_end() do advance()
+			else do return
 		case:
 			return
 		}
@@ -174,11 +173,16 @@ scan_token :: proc() -> Token {
 	case '"':
 		return string_scan()
 	}
-	return error_token("Unexpected character.")
+
+	builder: strings.Builder
+	strings.builder_init_len(&builder, 22)
+	strings.write_string(&builder, "Unexpected character ")
+	strings.write_rune(&builder, ch)
+	return error_token(strings.to_string(builder))
 }
 
 identifier :: proc() -> Token {
-	for unicode.is_letter(peek()) || unicode.is_digit(peek()) do advance()
+	for unicode.is_letter(peek()) || unicode.is_digit(peek()) || peek() == '_' do advance()
 	return make_token(identifier_type())
 }
 

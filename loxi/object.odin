@@ -6,6 +6,7 @@ import "core:strings"
 
 ObjType :: enum {
 	ObjString,
+	ObjFunction,
 }
 
 Obj :: struct {
@@ -16,6 +17,13 @@ Obj :: struct {
 ObjString :: struct {
 	using obj: Obj,
 	str:       string,
+}
+
+ObjFunction :: struct {
+	using obj: Obj,
+	name:      string,
+	chunk:     Chunk,
+	arity:     u8,
 }
 
 allocate_object :: proc($T: typeid, type: ObjType) -> ^T {
@@ -33,21 +41,30 @@ allocate_string :: proc(str: string) -> ^ObjString {
 	return obj_string
 }
 
+new_function :: proc() -> ^ObjFunction {
+	return allocate_object(ObjFunction, .ObjFunction)
+}
+
 free_object :: proc(obj: ^Obj) {
 	switch obj.type {
 	case .ObjString:
 		obj_string := cast(^ObjString)obj
 		delete(obj_string.str)
 		free(obj_string)
+	case .ObjFunction:
+		function := cast(^ObjFunction)obj
+		free_chunk(&function.chunk)
 	}
 }
 
 print_object :: proc(object: ^Obj) {
 	switch object.type {
 	case .ObjString:
-		fmt.printf("\"%v\"", (cast(^ObjString)object).str)
-	case:
-		fmt.print(object)
+		fmt.printf((cast(^ObjString)object).str)
+	case .ObjFunction:
+		name := (^ObjFunction)(object).name
+		if len(name) == 0 do fmt.print("<script>")
+		else do fmt.printf("<fn %s>", name)
 	}
 }
 
