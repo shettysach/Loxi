@@ -341,6 +341,7 @@ string_parse :: proc(can_assign: bool) {
 	emit_constant(Value(object))
 }
 
+// WARN: Book passes `name` by value
 named_variable :: proc(name: ^Token, can_assign: bool) {
 	get_op: u8 = 0
 	set_op: u8 = 0
@@ -350,7 +351,7 @@ named_variable :: proc(name: ^Token, can_assign: bool) {
 		get_op = u8(OpCode.GetLocal)
 		set_op = u8(OpCode.SetLocal)
 	} else {
-		arg := identifier_constant(name)
+		arg = identifier_constant(name)
 		get_op = u8(OpCode.GetGlobal)
 		set_op = u8(OpCode.SetGlobal)
 	}

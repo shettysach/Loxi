@@ -13,13 +13,13 @@ odin build loxi -o:speed
 ### Repl
 
 ```sh
-./loxi
+./loxi.bin
 ```
 
 ### File
 
 ```sh
-./loxi -- <filepath>
+./loxi.bin <filepath>
 ```
 
 ## Credits / Resources

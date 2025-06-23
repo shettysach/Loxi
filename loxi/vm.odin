@@ -97,8 +97,7 @@ run :: proc() -> InterpretResult {
 
 		case .Call:
 			arg_count := read_byte(frame)
-			callee := peek(arg_count)
-			if !call_value(callee, arg_count) do return .RuntimeError
+			if !call_value(peek(arg_count), arg_count) do return .RuntimeError
 			frame = &vm.frames[vm.frame_count - 1]
 
 		case .Jump:
@@ -122,6 +121,14 @@ run :: proc() -> InterpretResult {
 			vm.globals[name] = peek(0)
 			pop()
 
+		case .SetGlobal:
+			name := read_string(frame)
+			if !(name in vm.globals) {
+				runtime_error("Undefined variable '%s'.", name)
+				return .RuntimeError
+			}
+			vm.globals[name] = peek(0)
+
 		case .GetGlobal:
 			name := read_string(frame)
 			value, ok := vm.globals[name]
@@ -131,21 +138,13 @@ run :: proc() -> InterpretResult {
 			}
 			push(value)
 
-		case .SetGlobal:
-			name := read_string(frame)
-			if !(name in vm.globals) {
-				runtime_error("Undefined variable '%s'.", name)
-				return .RuntimeError
-			}
-			vm.globals[name] = peek(0)
+		case .SetLocal:
+			slot := read_byte(frame)
+			mem.ptr_offset(frame.slots, slot)^ = peek(0)
 
 		case .GetLocal:
 			slot := read_byte(frame)
 			push(mem.ptr_offset(frame.slots, slot)^)
-
-		case .SetLocal:
-			slot := read_byte(frame)
-			mem.ptr_offset(frame.slots, slot)^ = peek(0)
 
 		case .Nil:
 			push(Nil{})
@@ -362,10 +361,10 @@ concatenate :: proc(a, b: ^Obj) -> Value {
 }
 
 values_equal :: proc(val_a, val_b: Value) -> bool {
-	a, a_obj := val_a.(^Obj)
-	b, b_obj := val_b.(^Obj)
+	a, a_ok := val_a.(^Obj)
+	b, b_ok := val_b.(^Obj)
 
-	if a_obj && b_obj do return a == b
+	if a_ok && b_ok do return a == b
 	else do return val_a == val_b
 }
 
