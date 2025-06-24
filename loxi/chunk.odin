@@ -3,6 +3,7 @@ package loxi
 OpCode :: enum u8 {
 	Return,
 	Call,
+	Closure,
 	Jump,
 	JumpIfFalse,
 	Loop,
@@ -12,6 +13,9 @@ OpCode :: enum u8 {
 	SetGlobal,
 	GetLocal,
 	SetLocal,
+	GetUpvalue,
+	SetUpvalue,
+	CloseUpvalue,
 	Nil,
 	True,
 	False,

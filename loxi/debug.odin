@@ -15,38 +15,45 @@ disassemble_chunk :: proc(c: ^Chunk, name: string) {
 	fmt.println()
 }
 
-disassemble_instruction :: proc(c: ^Chunk, offset: uint) -> uint {
+disassemble_instruction :: proc(chunk: ^Chunk, offset: uint) -> uint {
+	offset := offset // Can't assign to a procdeure parameter
 	fmt.printf("% 4d ", offset)
 
-	if offset > 0 && c.lines[offset] == c.lines[offset - 1] do fmt.printf("   | ")
-	else do fmt.printf("% 4d ", c.lines[offset])
+	if offset > 0 && chunk.lines[offset] == chunk.lines[offset - 1] do fmt.printf("   | ")
+	else do fmt.printf("% 4d ", chunk.lines[offset])
 
-	instruction := OpCode(c.code[offset])
+	instruction := OpCode(chunk.code[offset])
 
 	switch instruction {
 
 	case .Return:
 		return simple_instruction("RETURN", offset)
 	case .Call:
-		return byte_instruction("CALL", c, offset)
+		return byte_instruction("CALL", chunk, offset)
 	case .Jump:
-		return jump_instruction("JUMP", true, c, offset)
+		return jump_instruction("JUMP", true, chunk, offset)
 	case .JumpIfFalse:
-		return jump_instruction("JUMP_IF_FALSE", true, c, offset)
+		return jump_instruction("JUMP_IF_FALSE", true, chunk, offset)
 	case .Loop:
-		return jump_instruction("LOOP", false, c, offset)
+		return jump_instruction("LOOP", false, chunk, offset)
 	case .Constant:
-		return constant_instruction("CONSTANT", c, offset)
+		return constant_instruction("CONSTANT", chunk, offset)
 	case .DefineGlobal:
-		return constant_instruction("DEFINE_GLOBAL", c, offset)
+		return constant_instruction("DEFINE_GLOBAL", chunk, offset)
 	case .GetGlobal:
-		return constant_instruction("GET_GLOBAL", c, offset)
+		return constant_instruction("GET_GLOBAL", chunk, offset)
 	case .SetGlobal:
-		return constant_instruction("SET_GLOBAL", c, offset)
+		return constant_instruction("SET_GLOBAL", chunk, offset)
 	case .GetLocal:
-		return byte_instruction("GET_LOCAL", c, offset)
+		return byte_instruction("GET_LOCAL", chunk, offset)
 	case .SetLocal:
-		return byte_instruction("SET_LOCAL", c, offset)
+		return byte_instruction("SET_LOCAL", chunk, offset)
+	case .GetUpvalue:
+		return byte_instruction("GET_UPVAL", chunk, offset)
+	case .SetUpvalue:
+		return byte_instruction("SET_UPVAL", chunk, offset)
+	case .CloseUpvalue:
+		return simple_instruction("CLOSE_UPVAL", offset)
 	case .Nil:
 		return simple_instruction("NIL", offset)
 	case .True:
@@ -75,9 +82,31 @@ disassemble_instruction :: proc(c: ^Chunk, offset: uint) -> uint {
 		return simple_instruction("PRINT", offset)
 	case .Pop:
 		return simple_instruction("POP", offset)
+	case .Closure:
+		offset += 1
+		constant := chunk.code[offset];offset += 1
+		fmt.printf("%-16s % 4d '", "CLOSURE", constant)
+		print_value(chunk.constants[constant])
+		fmt.println()
+
+		function := cast(^ObjFunction)(chunk.constants[constant].(^Obj))
+
+		for j in 0 ..< function.upvalue_count {
+			is_local := chunk.code[offset] != 0;offset += 1
+			index := chunk.code[offset];offset += 1
+			fmt.printfln(
+				"% 4d      |                     %s %d",
+				offset - 2,
+				is_local ? "local" : "upvalue",
+				index,
+			)
+		}
+
+		return offset
 	case:
 		fmt.printf("Unknown opcode %d\n", instruction)
 		return offset + 1
+
 	}
 }
 

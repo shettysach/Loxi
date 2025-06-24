@@ -36,8 +36,9 @@ Precedence :: enum {
 Compiler :: struct {
 	enclosing:   ^Compiler,
 	function:    ^ObjFunction,
-	ftype:       FunctionType,
 	locals:      [256]Local,
+	upvalues:    [256]Upvalue,
+	ftype:       FunctionType,
 	local_count: u8,
 	scope_depth: u8,
 }
@@ -48,8 +49,14 @@ FunctionType :: enum {
 }
 
 Local :: struct {
-	name:  Token,
-	depth: Maybe(u8),
+	name:        Token,
+	depth:       Maybe(u8),
+	is_captured: bool,
+}
+
+Upvalue :: struct {
+	index:    u8,
+	is_local: bool,
 }
 
 parser := Parser{}
@@ -86,6 +93,7 @@ init_compiler :: proc(compiler: ^Compiler, type: FunctionType) {
 	local := &current.locals[current.local_count]
 	current.local_count += 1
 	local.depth = 0
+	local.is_captured = false
 }
 
 end_compiler :: proc() -> ^ObjFunction {
@@ -110,7 +118,10 @@ end_scope :: proc() {
 
 	for current.local_count > 0 &&
 	    current.locals[current.local_count - 1].depth.(u8) > current.scope_depth {
-		emit_code(OpCode.Pop)
+
+		if current.locals[current.local_count - 1].is_captured do emit_code(.CloseUpvalue)
+		else do emit_code(.Pop)
+
 		current.local_count -= 1
 	}
 }
@@ -275,7 +286,12 @@ function_statement :: proc(ftype: FunctionType) {
 	block()
 
 	function := end_compiler()
-	emit_bytes(u8(OpCode.Constant), make_constant(cast(^Obj)function))
+	emit_bytes(u8(OpCode.Closure), make_constant(cast(^Obj)function))
+
+	for i in 0 ..< function.upvalue_count {
+		emit_byte(compiler.upvalues[i].is_local ? 1 : 0)
+		emit_byte(compiler.upvalues[i].index)
+	}
 }
 
 function_declaration :: proc() {
@@ -345,11 +361,15 @@ string_parse :: proc(can_assign: bool) {
 named_variable :: proc(name: ^Token, can_assign: bool) {
 	get_op: u8 = 0
 	set_op: u8 = 0
-	arg, ok := resolve_local(current, name).(u8)
+	arg, is_local := resolve_local(current, name).(u8)
 
-	if ok {
+	if is_local {
 		get_op = u8(OpCode.GetLocal)
 		set_op = u8(OpCode.SetLocal)
+	} else if upvalue, is_upval := resolve_upvalue(current, name).(u8); is_upval {
+		arg = upvalue
+		get_op = u8(OpCode.GetUpvalue)
+		set_op = u8(OpCode.SetUpvalue)
 	} else {
 		arg = identifier_constant(name)
 		get_op = u8(OpCode.GetGlobal)
@@ -600,8 +620,20 @@ resolve_local :: proc(compiler: ^Compiler, name: ^Token) -> Maybe(u8) {
 	return nil
 }
 
+resolve_upvalue :: proc(compiler: ^Compiler, name: ^Token) -> Maybe(u8) {
+	if compiler.enclosing == nil do return nil
+	if local, ok := resolve_local(compiler.enclosing, name).(u8); ok {
+		compiler.enclosing.locals[local].is_captured = true
+		return add_upvalue(compiler, local, true)
+	}
+	if upvalue, ok := resolve_upvalue(compiler.enclosing, name).(u8); ok {
+		return add_upvalue(compiler, upvalue, false)
+	}
+	return nil
+}
+
 add_local :: proc(name: Token) {
-	if current.local_count >= 255 {
+	if current.local_count >= 255 { 	// WARN: u8 never reaches this
 		error_at_previous("Too many local variables in the function.")
 		return
 	}
@@ -610,6 +642,27 @@ add_local :: proc(name: Token) {
 	current.local_count += 1
 	local.name = name
 	local.depth = nil
+	local.is_captured = false
+}
+
+add_upvalue :: proc(compiler: ^Compiler, index: u8, is_local: bool) -> u8 {
+	upvalue_count := compiler.function.upvalue_count
+
+	for i in 0 ..< upvalue_count {
+		upvalue := &compiler.upvalues[i]
+		if upvalue.index == index && upvalue.is_local == is_local do return i
+	}
+
+	if upvalue_count >= 255 { 	// WARN: u8 never reaches this
+		error_at_previous("Too many closure variables in function")
+		return 0
+	}
+
+	compiler.upvalues[upvalue_count].is_local = is_local
+	compiler.upvalues[upvalue_count].index = index
+	retval := compiler.function.upvalue_count
+	compiler.function.upvalue_count += 1
+	return upvalue_count // WARN: Book returns `compiler->function->upvalueCount++`
 }
 
 @(private = "file")
