@@ -50,7 +50,9 @@ write_chunk :: proc(c: ^Chunk, byte: u8, line: uint) {
 }
 
 add_constant :: proc(c: ^Chunk, value: Value) -> uint {
+	push(value)
 	len := uint(len(c.constants))
 	append_elem(&c.constants, value)
+	pop()
 	return len
 }

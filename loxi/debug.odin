@@ -3,11 +3,9 @@ package loxi
 import "core:fmt"
 import "core:mem"
 
-// DEBUG_PRINT_CODE :: true
-// DEBUG_TRACE_EXECUTION :: true
-
-DEBUG_PRINT_CODE :: false
-DEBUG_TRACE_EXECUTION :: false
+DEBUG_PRINT_CODE :: true
+DEBUG_TRACE_EXECUTION :: true
+DEBUG_LOG_GC :: true
 
 disassemble_chunk :: proc(c: ^Chunk, name: string) {
 	fmt.printfln("== %s ==", name)

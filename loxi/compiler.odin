@@ -100,7 +100,7 @@ end_compiler :: proc() -> ^ObjFunction {
 	emit_return()
 	function := current.function
 
-	if DEBUG_PRINT_CODE && !parser.had_error {
+	when DEBUG_PRINT_CODE do if !parser.had_error {
 		fname := len(function.name) == 0 ? "script" : function.name
 		disassemble_chunk(current_chunk(), fname)
 	}

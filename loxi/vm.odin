@@ -9,14 +9,18 @@ FRAMES_MAX :: 64
 STACK_MAX :: FRAMES_MAX * 256
 
 VirtMach :: struct {
-	frames:        [FRAMES_MAX]CallFrame,
-	frame_count:   u8,
-	stack:         [STACK_MAX]Value,
-	stack_top:     ^Value,
-	open_upvalues: ^ObjUpvalue,
-	objects:       ^Obj,
-	globals:       map[string]Value,
-	strings:       map[string]^ObjString,
+	frames:          [FRAMES_MAX]CallFrame,
+	frame_count:     u8,
+	stack:           [STACK_MAX]Value,
+	stack_top:       ^Value,
+	open_upvalues:   ^ObjUpvalue,
+	objects:         ^Obj,
+	globals:         map[string]Value,
+	strings:         map[string]^ObjString,
+	gray_stack:      [dynamic]^Obj,
+	gray_count:      uint,
+	bytes_allocated: uint,
+	next_gc:         uint,
 }
 
 CallFrame :: struct {
@@ -28,20 +32,26 @@ CallFrame :: struct {
 vm := VirtMach{}
 
 init_vm :: proc() {
-	reset_stack()
+	vm.stack_top = &vm.stack[0]
 	vm.globals = make(map[string]Value)
 	vm.strings = make(map[string]^ObjString)
+	vm.gray_stack = make([dynamic]^Obj)
+	vm.next_gc = 1024
 }
 
-reset_stack :: #force_inline proc() {
+reset_stack :: proc() {
 	vm.stack_top = &vm.stack[0]
 	vm.frame_count = 0
 }
 
 free_vm :: proc() {
+	vm.stack_top = nil
+	vm.open_upvalues = nil
+	vm.objects = nil
 	delete(vm.globals)
 	delete(vm.strings)
 	free_objects()
+	delete(vm.gray_stack)
 }
 
 free_objects :: proc() {
@@ -77,7 +87,7 @@ run :: proc() -> InterpretResult {
 	frame := &vm.frames[vm.frame_count - 1]
 
 	for {
-		if DEBUG_TRACE_EXECUTION {
+		when DEBUG_TRACE_EXECUTION {
 			disassemble_stack()
 			disassemble_instruction(&frame.closure.function.chunk, frame.ip)
 		}

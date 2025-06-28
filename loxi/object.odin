@@ -12,8 +12,9 @@ ObjType :: enum {
 }
 
 Obj :: struct {
-	type: ObjType,
-	next: ^Obj,
+	type:      ObjType,
+	next:      ^Obj,
+	is_marked: bool,
 }
 
 ObjString :: struct {
@@ -45,17 +46,27 @@ ObjUpvalue :: struct {
 
 
 allocate_object :: proc($T: typeid, type: ObjType) -> ^T {
+	if vm.bytes_allocated > vm.next_gc do collect_garbage()
+
 	object := new(T)
 	object.type = type
 	object.next = vm.objects
 	vm.objects = object
+
+	vm.bytes_allocated += size_of(T)
+	when DEBUG_LOG_GC do fmt.printfln("%p allocate %v for %v", object, size_of(T), type)
+
 	return object
 }
 
 allocate_string :: proc(str: string) -> ^ObjString {
 	obj_string := allocate_object(ObjString, .ObjString)
 	obj_string.str = str
+
+	push(cast(^Obj)obj_string)
 	vm.strings[str] = obj_string
+	pop()
+
 	return obj_string
 }
 
@@ -82,7 +93,7 @@ new_closure :: proc(function: ^ObjFunction) -> ^ObjClosure {
 	closure.function = function
 
 	upvalue_count := function.upvalue_count
-	closure.upvalues = make([]^ObjUpvalue, upvalue_count) // NOTE: Dynamic needed?
+	closure.upvalues = make([]^ObjUpvalue, upvalue_count)
 	closure.upvalue_count = upvalue_count
 	return closure
 }
@@ -98,22 +109,41 @@ new_upvalue :: proc(slot: ^Value) -> ^ObjUpvalue {
 	return upvalue
 }
 
-free_object :: proc(obj: ^Obj) {
-	switch obj.type {
+free_object :: proc(object: ^Obj) {
+	when DEBUG_LOG_GC do fmt.printfln("%p free type %v of size", object, object.type)
+
+	switch object.type {
 	case .ObjString:
-		obj_string := cast(^ObjString)obj
+		obj_string := cast(^ObjString)object
+
+		vm.bytes_allocated -= size_of(obj_string.str)
 		delete(obj_string.str)
+
+		vm.bytes_allocated -= size_of(obj_string)
 		free(obj_string)
+
 	case .ObjClosure:
-		closure := cast(^ObjClosure)obj
+		closure := cast(^ObjClosure)object
+
+		vm.bytes_allocated -= size_of(closure.upvalues)
 		delete(closure.upvalues)
+
+		vm.bytes_allocated -= size_of(closure)
 		free(closure)
+
 	case .ObjFunction:
-		function := cast(^ObjFunction)obj
+		function := cast(^ObjFunction)object
+
+		vm.bytes_allocated -= size_of(function.chunk)
 		free_chunk(&function.chunk)
+
+		vm.bytes_allocated -= size_of(function)
 		free(function)
+
 	case .ObjUpvalue:
-		upvalue := cast(^Upvalue)obj
+		upvalue := cast(^Upvalue)object
+
+		vm.bytes_allocated -= size_of(upvalue)
 		free(upvalue)
 	}
 }
