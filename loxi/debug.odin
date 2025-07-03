@@ -52,6 +52,12 @@ disassemble_instruction :: proc(chunk: ^Chunk, offset: uint) -> uint {
 		return byte_instruction("SET_UPVAL", chunk, offset)
 	case .CloseUpvalue:
 		return simple_instruction("CLOSE_UPVAL", offset)
+	case .GetProperty:
+		return constant_instruction("GET_PROPERTY", chunk, offset)
+	case .SetProperty:
+		return constant_instruction("SET_PROPERTY", chunk, offset)
+	case .Class:
+		return constant_instruction("CLASS", chunk, offset)
 	case .Nil:
 		return simple_instruction("NIL", offset)
 	case .True:
@@ -90,8 +96,10 @@ disassemble_instruction :: proc(chunk: ^Chunk, offset: uint) -> uint {
 		function := cast(^ObjFunction)(chunk.constants[constant].(^Obj))
 
 		for j in 0 ..< function.upvalue_count {
-			is_local := chunk.code[offset] != 0;offset += 1
-			index := chunk.code[offset];offset += 1
+			is_local := chunk.code[offset] != 0
+			offset += 1
+			index := chunk.code[offset]
+			offset += 1
 			fmt.printfln(
 				"% 4d      |                     %s %d",
 				offset - 2,

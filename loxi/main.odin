@@ -1,10 +1,7 @@
 package loxi
 
-import "core:bufio"
-import "core:bytes"
 import "core:fmt"
 import "core:os"
-import "core:strings"
 
 main :: proc() {
 	init_vm()
@@ -25,23 +22,36 @@ main :: proc() {
 
 repl :: proc() {
 	buffer: [1024]u8
+	input := make([dynamic]u8)
+	braces := 0
 
 	for {
-		fmt.print("> ")
-		n, err := os.read(os.stdin, buffer[:])
+		if braces == 0 do fmt.print("> ")
+		else do fmt.print("• ")
 
-		if err != nil || n == 1 {
-			break
-		}
+		n, err := os.read(os.stdin, buffer[:])
+		if n <= 1 && braces == 0 || err != nil do break
 
 		line := buffer[:n]
+		append(&input, ..line)
 
-		switch interpret(&line) {
-		case .CompileError:
-			os.exit(65)
-		case .RuntimeError:
-			os.exit(70)
-		case .Ok:
+		for c in line {
+			if c == '{' do braces += 1
+			else if c == '}' do braces -= 1
+		}
+
+		if braces == 0 {
+			source := input[:]
+			switch interpret(&source) {
+			case .CompileError:
+				os.exit(65)
+			case .RuntimeError:
+				os.exit(70)
+			case .Ok:
+			}
+
+			clear(&input)
+			braces = 0
 		}
 	}
 }

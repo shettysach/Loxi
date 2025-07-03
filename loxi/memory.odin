@@ -64,7 +64,10 @@ mark_object :: proc(object: ^Obj) {
 }
 
 mark_table :: proc(table: ^map[string]Value) {
-	for _, value in table do mark_value(value)
+	for k, v in table {
+		mark_value(v)
+		mark_object(cast(^Obj)vm.strings[k])
+	}
 }
 
 mark_compiler_roots :: proc() {
@@ -101,15 +104,18 @@ blacken_object :: proc(object: ^Obj) {
 		mark_array(&function.chunk.constants)
 	case .ObjUpvalue:
 		mark_value((^ObjUpvalue)(object).closed)
+	case .ObjClass:
+		class := cast(^ObjClass)object
+		mark_object(class)
+	case .ObjInstance:
+		instance := cast(^ObjInstance)object
+		mark_object(instance)
+		mark_table(&instance.fields)
 	}
 }
 
 table_remove_white :: proc(table: ^map[string]^ObjString) {
-	for entry, value in table {
-		if !value.is_marked {
-			delete_key(table, entry)
-		}
-	}
+	for entry, value in table do if !value.is_marked do delete_key(table, entry)
 }
 
 sweep :: proc() {

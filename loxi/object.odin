@@ -9,6 +9,8 @@ ObjType :: enum {
 	ObjFunction,
 	ObjClosure,
 	ObjUpvalue,
+	ObjClass,
+	ObjInstance,
 }
 
 Obj :: struct {
@@ -44,6 +46,16 @@ ObjUpvalue :: struct {
 	next_upvalue: ^ObjUpvalue,
 }
 
+ObjClass :: struct {
+	using obj: Obj,
+	name:      string,
+}
+
+ObjInstance :: struct {
+	using obj: Obj,
+	class:     ^ObjClass,
+	fields:    map[string]Value,
+}
 
 allocate_object :: proc($T: typeid, type: ObjType) -> ^T {
 	if vm.bytes_allocated > vm.next_gc do collect_garbage()
@@ -109,8 +121,21 @@ new_upvalue :: proc(slot: ^Value) -> ^ObjUpvalue {
 	return upvalue
 }
 
+new_class :: proc(name: string) -> ^ObjClass {
+	class := allocate_object(ObjClass, .ObjClass)
+	class.name = name
+	return class
+}
+
+new_instance :: proc(class: ^ObjClass) -> ^ObjInstance {
+	instance := allocate_object(ObjInstance, .ObjInstance)
+	instance.class = class
+	instance.fields = make(map[string]Value)
+	return instance
+}
+
 free_object :: proc(object: ^Obj) {
-	when DEBUG_LOG_GC do fmt.printfln("%p free type %v of size", object, object.type)
+	when DEBUG_LOG_GC do fmt.printfln("%p free type %v of size", object, object.type) // TODO: Inaccurate. Add fields.
 
 	switch object.type {
 	case .ObjString:
@@ -141,10 +166,25 @@ free_object :: proc(object: ^Obj) {
 		free(function)
 
 	case .ObjUpvalue:
-		upvalue := cast(^Upvalue)object
+		upvalue := cast(^ObjUpvalue)object
 
 		vm.bytes_allocated -= size_of(upvalue)
 		free(upvalue)
+
+	case .ObjClass:
+		class := cast(^ObjClass)object
+
+		vm.bytes_allocated -= size_of(class)
+		free(class)
+
+	case .ObjInstance:
+		instance := cast(^ObjInstance)object
+
+		vm.bytes_allocated -= size_of(instance.fields)
+		delete(instance.fields)
+
+		vm.bytes_allocated -= size_of(instance)
+		free(instance)
 	}
 }
 
@@ -160,6 +200,12 @@ print_object :: proc(object: ^Obj) {
 		print_function(function)
 	case .ObjUpvalue:
 		fmt.print("upvalue")
+	case .ObjClass:
+		class := (^ObjClass)(object)
+		fmt.printf("<class %s>", class.name)
+	case .ObjInstance:
+		instance := (^ObjInstance)(object)
+		fmt.printf("<instance %s>", instance.class.name)
 	}
 }
 

@@ -127,7 +127,8 @@ end_scope :: proc() {
 }
 
 declaration :: proc() {
-	if match(.Fun) do function_declaration()
+	if match(.Class) do class_declaration()
+	else if match(.Fun) do function_declaration()
 	else if match(.Var) do var_declaration()
 	else do statement()
 
@@ -301,6 +302,18 @@ function_declaration :: proc() {
 	define_variable(global)
 }
 
+class_declaration :: proc() {
+	consume(.Identifier, "Expect class name.")
+	name_constant := identifier_constant(&parser.previous)
+	declare_variable()
+
+	emit_bytes(u8(OpCode.Class), name_constant)
+	define_variable(name_constant)
+
+	consume(.LeftBrace, "Expect '{' before class body.")
+	consume(.RightBrace, "Expect '}' before class body.")
+}
+
 synchronize :: proc() {
 	parser.panic_mode = false
 
@@ -441,6 +454,19 @@ call :: proc(can_assign: bool) {
 	emit_bytes(u8(OpCode.Call), arg_count)
 }
 
+dot :: proc(can_assign: bool) {
+	consume(.Identifier, "Expect property name after '.'.")
+	name := identifier_constant(&parser.previous)
+
+	if can_assign && match(.Equal) {
+		expression()
+		emit_bytes(u8(OpCode.SetProperty), name)
+	} else {
+		emit_bytes(u8(OpCode.GetProperty), name)
+	}
+
+}
+
 argument_list :: proc() -> u8 {
 	arg_count: u8 = 0
 	if !check(.RightParen) {
@@ -505,7 +531,7 @@ rules := []ParseRule {
 	TokenType.LeftBrace    = ParseRule{nil, nil, .None},
 	TokenType.RightBrace   = ParseRule{nil, nil, .None},
 	TokenType.Comma        = ParseRule{nil, nil, .None},
-	TokenType.Dot          = ParseRule{nil, nil, .None},
+	TokenType.Dot          = ParseRule{nil, dot, .Call},
 	TokenType.Minus        = ParseRule{unary, binary, .Term},
 	TokenType.Plus         = ParseRule{nil, binary, .Term},
 	TokenType.Semicolon    = ParseRule{nil, nil, .None},

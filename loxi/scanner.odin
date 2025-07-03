@@ -175,9 +175,10 @@ scan_token :: proc() -> Token {
 	}
 
 	builder: strings.Builder
-	strings.builder_init_len(&builder, 22)
-	strings.write_string(&builder, "Unexpected character ")
+	strings.builder_init_len(&builder, 24)
+	strings.write_string(&builder, "Unexpected character `")
 	strings.write_rune(&builder, ch)
+	strings.write_rune(&builder, '`')
 	return error_token(strings.to_string(builder))
 }
 

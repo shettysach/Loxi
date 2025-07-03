@@ -190,6 +190,44 @@ run :: proc() -> InterpretResult {
 			close_upvalues(mem.ptr_offset(vm.stack_top, -1))
 			pop()
 
+		case .GetProperty:
+			object, ok := peek(0).(^Obj)
+
+			if !ok || object.type != .ObjInstance {
+				runtime_error("Only instances have properties.")
+				return .RuntimeError
+			}
+
+			instance := cast(^ObjInstance)object
+			name := read_string(frame)
+
+			if value, ok := instance.fields[name]; ok {
+				pop()
+				push(value)
+				break
+			}
+
+			runtime_error("Undefined property '%s'.", name)
+			return .RuntimeError
+
+		case .SetProperty:
+			object, ok := peek(1).(^Obj)
+
+			if !ok || object.type != .ObjInstance {
+				runtime_error("Only instances have fields.")
+				return .RuntimeError
+			}
+
+			instance := cast(^ObjInstance)object
+			instance.fields[read_string(frame)] = peek(0)
+			value := pop()
+			pop()
+			push(value)
+			break
+
+		case .Class:
+			push((^Obj)(new_class(read_string(frame))))
+
 		case .Nil:
 			push(Nil{})
 
@@ -361,6 +399,11 @@ peek :: proc(distance: u8) -> Value {
 call_value :: proc(callee: Value, arg_count: u8) -> bool {
 	if obj, ok := callee.(^Obj); ok {
 		#partial switch obj.type {
+		case .ObjClass:
+			class := cast(^ObjClass)callee.(^Obj)
+			mem.ptr_offset(vm.stack_top, -i16(arg_count) - 1)^ = cast(^Obj)new_instance(class)
+			return true
+
 		case .ObjClosure:
 			return call(cast(^ObjClosure)obj, arg_count)
 		}
