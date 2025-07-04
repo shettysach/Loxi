@@ -2,8 +2,8 @@ package loxi
 
 import "core:fmt"
 import "core:mem"
-import "core:os"
 import "core:strings"
+import "core:time"
 
 FRAMES_MAX :: 64
 STACK_MAX :: FRAMES_MAX * 256
@@ -31,12 +31,17 @@ CallFrame :: struct {
 
 vm := VirtMach{}
 
+clock_native :: proc(arg_count: u8, args: ^Value) -> Value {
+	return f64(time.now()._nsec)
+}
+
 init_vm :: proc() {
 	vm.stack_top = &vm.stack[0]
 	vm.globals = make(map[string]Value)
 	vm.strings = make(map[string]^ObjString)
 	vm.gray_stack = make([dynamic]^Obj)
 	vm.next_gc = 1024 * 1024
+	define_native("clock", clock_native)
 }
 
 reset_stack :: proc() {
@@ -458,6 +463,14 @@ call_value :: proc(callee: Value, arg_count: u8) -> bool {
 		case .ObjClosure:
 			return call(cast(^ObjClosure)obj, arg_count)
 
+		case .ObjNative:
+			object := cast(^ObjNative)callee.(^Obj)
+			native := object.function
+			args := mem.ptr_offset(vm.stack_top, -int(arg_count))
+			result := native(arg_count, args)
+			vm.stack_top = mem.ptr_offset(vm.stack_top, -int(arg_count) + 1)
+			push(result)
+			return true
 		}
 	}
 
@@ -603,4 +616,12 @@ runtime_error :: proc(format: string, args: ..any) {
 	}
 
 	reset_stack()
+}
+
+define_native :: proc(name: string, function: NativeFn) {
+	push(cast(^Obj)copy_string(name))
+	push(cast(^Obj)new_native(function))
+	vm.globals[name] = vm.stack[1]
+	pop()
+	pop()
 }

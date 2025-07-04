@@ -3,7 +3,6 @@ package loxi
 import "core:fmt"
 import "core:os"
 
-
 REPL :: #config(REPL, false)
 
 main :: proc() {

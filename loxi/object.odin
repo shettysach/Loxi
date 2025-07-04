@@ -1,12 +1,12 @@
 package loxi
 
 import "core:fmt"
-import "core:hash"
 import "core:strings"
 
 ObjType :: enum {
 	ObjString,
 	ObjFunction,
+	ObjNative,
 	ObjClosure,
 	ObjUpvalue,
 	ObjClass,
@@ -39,6 +39,13 @@ ObjFunction :: struct {
 	arity:         u8,
 	upvalue_count: u8,
 }
+
+ObjNative :: struct {
+	using obj: Obj,
+	function:  NativeFn,
+}
+
+NativeFn :: proc(arg_count: u8, args: ^Value) -> Value
 
 ObjUpvalue :: struct {
 	using obj:    Obj,
@@ -122,6 +129,12 @@ new_function :: proc() -> ^ObjFunction {
 	return allocate_object(ObjFunction, .ObjFunction)
 }
 
+new_native :: proc(function: NativeFn) -> ^ObjNative {
+	native := allocate_object(ObjNative, .ObjNative)
+	native.function = function
+	return native
+}
+
 new_upvalue :: proc(slot: ^Value) -> ^ObjUpvalue {
 	upvalue := allocate_object(ObjUpvalue, .ObjUpvalue)
 	upvalue.location = slot
@@ -187,6 +200,10 @@ free_object :: proc(object: ^Obj) {
 		vm.bytes_allocated -= size_of(function)
 		free(function)
 
+	case .ObjNative:
+		native := cast(^ObjUpvalue)object
+		free(native)
+
 	case .ObjUpvalue:
 		upvalue := cast(^ObjUpvalue)object
 
@@ -230,6 +247,8 @@ print_object :: proc(object: ^Obj) {
 	case .ObjFunction:
 		function := cast(^ObjFunction)object
 		print_function(function)
+	case .ObjNative:
+		fmt.print("<native fn>")
 	case .ObjUpvalue:
 		fmt.print("upvalue")
 	case .ObjClass:

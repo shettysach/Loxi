@@ -2,7 +2,6 @@ package loxi
 
 import "core:fmt"
 import "core:strconv"
-import "core:strings"
 
 Parser :: struct {
 	current:    Token,
