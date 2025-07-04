@@ -47,11 +47,14 @@ reset_stack :: proc() {
 free_vm :: proc() {
 	vm.stack_top = nil
 	vm.open_upvalues = nil
-	vm.objects = nil
+
 	delete(vm.globals)
 	delete(vm.strings)
-	free_objects()
 	delete(vm.gray_stack)
+
+	free_objects()
+	vm.objects = nil
+
 }
 
 free_objects :: proc() {
@@ -132,6 +135,15 @@ run :: proc() -> InterpretResult {
 			arg_count := read_byte(frame)
 
 			if !invoke(method, arg_count) do return .RuntimeError
+
+			frame = &vm.frames[vm.frame_count - 1]
+
+		case .SuperInvoke:
+			method := read_string(frame)
+			arg_count := read_byte(frame)
+			superclass := cast(^ObjClass)pop().(^Obj)
+
+			if !invoke_from_class(superclass, method, arg_count) do return .RuntimeError
 
 			frame = &vm.frames[vm.frame_count - 1]
 
@@ -231,8 +243,26 @@ run :: proc() -> InterpretResult {
 			pop()
 			push(value)
 
+		case .GetSuper:
+			name := read_string(frame)
+			superclass := cast(^ObjClass)pop().(^Obj)
+
+			if !bind_method(superclass, name) do return .RuntimeError
+
 		case .Class:
 			push((^Obj)(new_class(read_string(frame))))
+
+		case .Inherit:
+			superclass := cast(^ObjClass)peek(1).(^Obj)
+			if superclass.type != .ObjClass {
+				runtime_error("Superclass must be a class.")
+				return .RuntimeError
+			}
+			subclass := cast(^ObjClass)peek(0).(^Obj)
+			for name, method in superclass.methods {
+				superclass.methods[name] = method
+			}
+			pop()
 
 		case .Method:
 			define_method(read_string(frame))
@@ -574,4 +604,3 @@ runtime_error :: proc(format: string, args: ..any) {
 
 	reset_stack()
 }
-

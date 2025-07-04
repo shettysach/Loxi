@@ -30,6 +30,8 @@ disassemble_instruction :: proc(chunk: ^Chunk, offset: uint) -> uint {
 		return byte_instruction("CALL", chunk, offset)
 	case .Invoke:
 		return invoke_instruction("INVOKE", chunk, offset)
+	case .SuperInvoke:
+		return invoke_instruction("SUPER_INVOKE", chunk, offset)
 	case .Jump:
 		return jump_instruction("JUMP", true, chunk, offset)
 	case .JumpIfFalse:
@@ -58,8 +60,12 @@ disassemble_instruction :: proc(chunk: ^Chunk, offset: uint) -> uint {
 		return constant_instruction("GET_PROPERTY", chunk, offset)
 	case .SetProperty:
 		return constant_instruction("SET_PROPERTY", chunk, offset)
+	case .GetSuper:
+		return constant_instruction("GET_SUPER", chunk, offset)
 	case .Class:
 		return constant_instruction("CLASS", chunk, offset)
+	case .Inherit:
+		return simple_instruction("INHERIT", offset)
 	case .Method:
 		return constant_instruction("METHOD", chunk, offset)
 	case .Nil:

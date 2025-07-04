@@ -46,6 +46,7 @@ Compiler :: struct {
 
 ClassCompiler :: struct {
 	enclosing: ^ClassCompiler,
+	has_super: bool,
 }
 
 FunctionType :: enum {
@@ -56,7 +57,7 @@ FunctionType :: enum {
 }
 
 Local :: struct {
-	name:        Token,
+	name:        string,
 	depth:       Maybe(u8),
 	is_captured: bool,
 }
@@ -105,9 +106,9 @@ init_compiler :: proc(compiler: ^Compiler, type: FunctionType) {
 	local.is_captured = false
 
 	if (type != .Function) {
-		local.name.lexeme = "this"
+		local.name = "this"
 	} else {
-		local.name.lexeme = ""
+		local.name = ""
 	}
 }
 
@@ -304,7 +305,7 @@ function_statement :: proc(ftype: FunctionType) {
 
 method :: proc() {
 	consume(.Identifier, "Expect method name.")
-	constant := identifier_constant(&parser.previous)
+	constant := identifier_constant(parser.previous.lexeme)
 
 	type: FunctionType = parser.previous.lexeme == "init" ? .Initializer : .Method
 
@@ -332,8 +333,8 @@ function_declaration :: proc() {
 
 class_declaration :: proc() {
 	consume(.Identifier, "Expect class name.")
-	class_name := parser.previous
-	name_constant := identifier_constant(&parser.previous)
+	class_name := parser.previous.lexeme
+	name_constant := identifier_constant(parser.previous.lexeme)
 	declare_variable()
 
 	emit_bytes(u8(OpCode.Class), name_constant)
@@ -341,14 +342,33 @@ class_declaration :: proc() {
 
 	class_compiler := ClassCompiler {
 		enclosing = current_class,
+		has_super = false,
 	}
 	current_class = &class_compiler
 
-	named_variable(&class_name, false)
+	if match(.Less) {
+		consume(.Identifier, "Expect superclass name.")
+		variable(false)
+		if class_name == parser.previous.lexeme {
+			error_at_previous("A class can't inherit from itself.")
+		}
+
+		begin_scope()
+		add_local("super")
+		define_variable(0)
+
+		named_variable(class_name, false)
+		emit_code(OpCode.Inherit)
+		class_compiler.has_super = true
+	}
+
+	named_variable(class_name, false)
 	consume(.LeftBrace, "Expect '{' before class body.")
 	for !check(.RightBrace) && !check(.LeftBrace) do method()
 	consume(.RightBrace, "Expect '}' before class body.")
 	emit_code(OpCode.Pop)
+
+	if class_compiler.has_super do end_scope()
 
 	current_class = current_class.enclosing
 }
@@ -409,9 +429,7 @@ string_parse :: proc(can_assign: bool) {
 	emit_constant(Value(object))
 }
 
-// WARN: Book passes `name` by value
-// TODO: Deal with ointer indirection
-named_variable :: proc(name: ^Token, can_assign: bool) {
+named_variable :: proc(name: string, can_assign: bool) {
 	get_op: u8 = 0
 	set_op: u8 = 0
 	arg, is_local := resolve_local(current, name).(u8)
@@ -438,7 +456,7 @@ named_variable :: proc(name: ^Token, can_assign: bool) {
 }
 
 variable :: proc(can_assign: bool) {
-	named_variable(&parser.previous, can_assign)
+	named_variable(parser.previous.lexeme, can_assign)
 }
 
 this :: proc(can_assign: bool) {
@@ -448,6 +466,26 @@ this :: proc(can_assign: bool) {
 	}
 
 	variable(false)
+}
+
+super :: proc(can_assign: bool) {
+	if current_class == nil do error_at_previous("Can't use 'super' outside of a class.")
+	else if !current_class.has_super do error_at_previous("Can't use 'super' with no superclass")
+
+	consume(.Dot, "Expect '.' after 'super'.")
+	consume(.Identifier, "Expect superclass method name.")
+	name := identifier_constant(parser.previous.lexeme)
+
+	named_variable("this", false)
+	if match(.LeftParen) {
+		arg_count := argument_list()
+		named_variable("super", false)
+		emit_bytes(u8(OpCode.SuperInvoke), name)
+		emit_byte(arg_count)
+	} else {
+		named_variable("super", false)
+		emit_bytes(u8(OpCode.GetSuper), name)
+	}
 }
 
 unary :: proc(can_assign: bool) {
@@ -505,7 +543,7 @@ call :: proc(can_assign: bool) {
 
 dot :: proc(can_assign: bool) {
 	consume(.Identifier, "Expect property name after '.'.")
-	name := identifier_constant(&parser.previous)
+	name := identifier_constant(parser.previous.lexeme)
 
 	if can_assign && match(.Equal) {
 		expression()
@@ -612,7 +650,7 @@ rules := []ParseRule {
 	TokenType.Or           = ParseRule{nil, or_parse, .Or},
 	TokenType.Print        = ParseRule{nil, nil, .None},
 	TokenType.Return       = ParseRule{nil, nil, .None},
-	TokenType.Super        = ParseRule{nil, nil, .None},
+	TokenType.Super        = ParseRule{super, nil, .None},
 	TokenType.This         = ParseRule{this, nil, .None},
 	TokenType.True         = ParseRule{literal, nil, .None},
 	TokenType.Var          = ParseRule{nil, nil, .None},
@@ -627,7 +665,7 @@ parse_variable :: proc(error_msg: string) -> u8 {
 	declare_variable()
 	if current.scope_depth > 0 do return 0
 
-	return identifier_constant(&parser.previous)
+	return identifier_constant(parser.previous.lexeme)
 }
 
 mark_initialized :: proc() {
@@ -645,15 +683,15 @@ define_variable :: proc(global: u8) {
 
 declare_variable :: proc() {
 	if current.scope_depth == 0 do return
-	name := &parser.previous
+	name := parser.previous.lexeme
 
 	for i in current.local_count - 1 ..= 0 {
 		local := &current.locals[i]
 		if local.depth != nil && local.depth.(u8) < current.scope_depth do break
-		if identifiers_equal(name, &local.name) do error_at_previous("Already a variable with this name in this scope.")
+		if name == local.name do error_at_previous("Already a variable with this name in this scope.")
 	}
 
-	add_local(name^)
+	add_local(name)
 }
 
 and_parse :: proc(can_assign: bool) {
@@ -676,19 +714,15 @@ or_parse :: proc(can_assign: bool) {
 	patch_jump(end_jump)
 }
 
-identifier_constant :: proc(name: ^Token) -> u8 {
-	obj := cast(^Obj)copy_string(name.lexeme)
+identifier_constant :: proc(name: string) -> u8 {
+	obj := cast(^Obj)copy_string(name)
 	return make_constant(obj)
 }
 
-identifiers_equal :: proc(a: ^Token, b: ^Token) -> bool {
-	return a.lexeme == b.lexeme
-}
-
-resolve_local :: proc(compiler: ^Compiler, name: ^Token) -> Maybe(u8) {
+resolve_local :: proc(compiler: ^Compiler, name: string) -> Maybe(u8) {
 	for i := compiler.local_count - 1;; i -= 1 {
 		local := &compiler.locals[i]
-		if identifiers_equal(name, &local.name) {
+		if name == local.name {
 			if local.depth == nil do error_at_previous("Can't read local variable in its own initializer.")
 			return i
 		}
@@ -699,7 +733,7 @@ resolve_local :: proc(compiler: ^Compiler, name: ^Token) -> Maybe(u8) {
 	return nil
 }
 
-resolve_upvalue :: proc(compiler: ^Compiler, name: ^Token) -> Maybe(u8) {
+resolve_upvalue :: proc(compiler: ^Compiler, name: string) -> Maybe(u8) {
 	if compiler.enclosing == nil do return nil
 	if local, ok := resolve_local(compiler.enclosing, name).(u8); ok {
 		compiler.enclosing.locals[local].is_captured = true
@@ -711,15 +745,15 @@ resolve_upvalue :: proc(compiler: ^Compiler, name: ^Token) -> Maybe(u8) {
 	return nil
 }
 
-add_local :: proc(name: Token) {
-	if current.local_count >= 255 { 	// WARN: u8 never reaches this
+add_local :: proc(name: string) {
+	if current.local_count == 255 {
 		error_at_previous("Too many local variables in the function.")
 		return
 	}
 
 	local := &current.locals[current.local_count]
 	current.local_count += 1
-	local.name = name
+	local.name = name // NOTE: Clone for repl?
 	local.depth = nil
 	local.is_captured = false
 }
@@ -732,7 +766,7 @@ add_upvalue :: proc(compiler: ^Compiler, index: u8, is_local: bool) -> u8 {
 		if upvalue.index == index && upvalue.is_local == is_local do return i
 	}
 
-	if upvalue_count >= 255 { 	// WARN: u8 never reaches this
+	if upvalue_count == 255 {
 		error_at_previous("Too many closure variables in function")
 		return 0
 	}

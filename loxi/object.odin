@@ -151,7 +151,8 @@ new_bound_method :: proc(reciever: Value, method: ^ObjClosure) -> ^ObjBoundMetho
 }
 
 free_object :: proc(object: ^Obj) {
-	when DEBUG_LOG_GC do fmt.printfln("%p free type %v of size", object, object.type) // NOTE: Inaccurate
+	// TODO: Inaccurate. Needs to include fields etc
+	when DEBUG_LOG_GC do fmt.printfln("%p free type %v", object, object.type)
 
 	switch object.type {
 	case .ObjString:
