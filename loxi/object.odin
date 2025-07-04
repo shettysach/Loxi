@@ -45,7 +45,7 @@ ObjNative :: struct {
 	function:  NativeFn,
 }
 
-NativeFn :: proc(arg_count: u8, args: ^Value) -> Value
+NativeFn :: proc(args: []Value) -> Value
 
 ObjUpvalue :: struct {
 	using obj:    Obj,

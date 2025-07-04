@@ -2,6 +2,7 @@ package loxi
 
 import "core:fmt"
 import "core:mem"
+import "core:slice"
 import "core:strings"
 import "core:time"
 
@@ -31,7 +32,7 @@ CallFrame :: struct {
 
 vm := VirtMach{}
 
-clock_native :: proc(arg_count: u8, args: ^Value) -> Value {
+clock_native :: proc(args: []Value) -> Value {
 	return f64(time.now()._nsec)
 }
 
@@ -466,8 +467,9 @@ call_value :: proc(callee: Value, arg_count: u8) -> bool {
 		case .ObjNative:
 			object := cast(^ObjNative)callee.(^Obj)
 			native := object.function
-			args := mem.ptr_offset(vm.stack_top, -int(arg_count))
-			result := native(arg_count, args)
+			args_ptr := mem.ptr_offset(vm.stack_top, -int(arg_count))
+			args_slice := slice.from_ptr(args_ptr, int(arg_count))
+			result := native(args_slice)
 			vm.stack_top = mem.ptr_offset(vm.stack_top, -int(arg_count) + 1)
 			push(result)
 			return true
