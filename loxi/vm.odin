@@ -36,7 +36,7 @@ init_vm :: proc() {
 	vm.globals = make(map[string]Value)
 	vm.strings = make(map[string]^ObjString)
 	vm.gray_stack = make([dynamic]^Obj)
-	vm.next_gc = 1024
+	vm.next_gc = 1024 * 1024
 }
 
 reset_stack :: proc() {
@@ -127,6 +127,14 @@ run :: proc() -> InterpretResult {
 				}
 			}
 
+		case .Invoke:
+			method := read_string(frame)
+			arg_count := read_byte(frame)
+
+			if !invoke(method, arg_count) do return .RuntimeError
+
+			frame = &vm.frames[vm.frame_count - 1]
+
 		case .Call:
 			arg_count := read_byte(frame)
 			if !call_value(peek(arg_count), arg_count) do return .RuntimeError
@@ -207,8 +215,7 @@ run :: proc() -> InterpretResult {
 				break
 			}
 
-			runtime_error("Undefined property '%s'.", name)
-			return .RuntimeError
+			if !bind_method(instance.class, name) do return .RuntimeError
 
 		case .SetProperty:
 			object, ok := peek(1).(^Obj)
@@ -223,10 +230,12 @@ run :: proc() -> InterpretResult {
 			value := pop()
 			pop()
 			push(value)
-			break
 
 		case .Class:
 			push((^Obj)(new_class(read_string(frame))))
+
+		case .Method:
+			define_method(read_string(frame))
 
 		case .Nil:
 			push(Nil{})
@@ -393,23 +402,64 @@ pop :: proc() -> Value {
 
 @(private = "file")
 peek :: proc(distance: u8) -> Value {
-	return mem.ptr_offset(vm.stack_top, -i16(distance) - 1)^
+	return mem.ptr_offset(vm.stack_top, -int(distance) - 1)^
 }
 
 call_value :: proc(callee: Value, arg_count: u8) -> bool {
 	if obj, ok := callee.(^Obj); ok {
 		#partial switch obj.type {
+
+		case .ObjBoundMethod:
+			bound := cast(^ObjBoundMethod)callee.(^Obj)
+			mem.ptr_offset(vm.stack_top, -int(arg_count) - 1)^ = bound.reciever
+			return call(bound.method, arg_count)
+
 		case .ObjClass:
 			class := cast(^ObjClass)callee.(^Obj)
-			mem.ptr_offset(vm.stack_top, -i16(arg_count) - 1)^ = cast(^Obj)new_instance(class)
+			mem.ptr_offset(vm.stack_top, -int(arg_count) - 1)^ = cast(^Obj)new_instance(class)
+			if initializer, ok := class.methods["init"]; ok {
+				return call(cast(^ObjClosure)initializer.(^Obj), arg_count)
+			} else if arg_count != 0 {
+				runtime_error("Expected 0 arguments but got %d.", arg_count)
+				return false
+			}
 			return true
 
 		case .ObjClosure:
 			return call(cast(^ObjClosure)obj, arg_count)
+
 		}
 	}
 
 	runtime_error("Can only call functions and classes.")
+	return false
+}
+
+invoke :: proc(name: string, arg_count: u8) -> bool {
+	reciever := peek(arg_count)
+
+	object, ok := reciever.(^Obj)
+	if !ok || object.type != .ObjInstance {
+		runtime_error("Only instances have methods.")
+		return false
+	}
+
+	instance := cast(^ObjInstance)object
+
+	if value, ok := instance.fields[name]; ok {
+		mem.ptr_offset(vm.stack_top, -int(arg_count) - 1)^ = value
+		return call_value(value, arg_count)
+	}
+
+	return invoke_from_class(instance.class, name, arg_count)
+}
+
+invoke_from_class :: proc(class: ^ObjClass, name: string, arg_count: u8) -> bool {
+	if method, ok := class.methods[name]; ok {
+		return call(cast(^ObjClosure)method.(^Obj), arg_count)
+	}
+
+	runtime_error("Undefined property '%s'.", name)
 	return false
 }
 
@@ -422,9 +472,7 @@ capture_upvalue :: proc(local: ^Value) -> ^ObjUpvalue {
 		upvalue = upvalue.next_upvalue
 	}
 
-	if upvalue != nil && upvalue.location == local {
-		return upvalue
-	}
+	if upvalue != nil && upvalue.location == local do return upvalue
 
 	created_upvalue := new_upvalue(local)
 	created_upvalue.next_upvalue = upvalue
@@ -445,6 +493,28 @@ close_upvalues :: proc(last: ^Value) {
 
 }
 
+define_method :: proc(name: string) {
+	method := peek(0)
+	class := cast(^ObjClass)peek(1).(^Obj)
+	class.methods[name] = method
+	pop()
+}
+
+bind_method :: proc(class: ^ObjClass, name: string) -> bool {
+	method, ok := class.methods[name]
+
+	if !ok {
+		runtime_error("Undefined property '%s'.", name)
+		return false
+	}
+
+	bound := new_bound_method(peek(0), cast(^ObjClosure)method.(^Obj))
+
+	pop()
+	push(cast(^Obj)bound)
+	return true
+}
+
 call :: proc(closure: ^ObjClosure, arg_count: u8) -> bool {
 	if arg_count != closure.function.arity {
 		runtime_error("Expected %d arguments but got %d.", closure.function.arity, arg_count)
@@ -460,7 +530,7 @@ call :: proc(closure: ^ObjClosure, arg_count: u8) -> bool {
 	vm.frame_count += 1
 	frame.closure = closure
 	frame.ip = 0
-	frame.slots = mem.ptr_offset(vm.stack_top, -i16(arg_count) - 1)
+	frame.slots = mem.ptr_offset(vm.stack_top, -int(arg_count) - 1)
 	return true
 }
 
@@ -504,3 +574,4 @@ runtime_error :: proc(format: string, args: ..any) {
 
 	reset_stack()
 }
+

@@ -8,11 +8,15 @@ fun makeCounter() {
   return count;
 }
 
+print makeCounter;
+
 var counter = 0;
 counter = makeCounter();
 counter();
 counter();
 counter();
+
+print counter;
 
 {
     var m = 0;

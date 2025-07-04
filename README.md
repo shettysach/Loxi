@@ -1,23 +1,39 @@
 # Loxi
 
-Lox bytecode interpreter in Odin
+Lox bytecode interpreter in Odin.
+
+## Build and run
+
+### Repl
+```sh
+odin build loxi -define:REPL=true 
+```
+
+### File
+```sh
+odin build loxi -- <filepath>
+```
 
 ## Build
 
+### Repl
 ```sh
-odin build loxi -o:speed
+odin build loxi -define:REPL=true 
+```
+
+### File
+```sh
+odin build loxi 
 ```
 
 ## Run
 
 ### Repl
-
 ```sh
 ./loxi.bin
 ```
 
 ### File
-
 ```sh
 ./loxi.bin <filepath>
 ```

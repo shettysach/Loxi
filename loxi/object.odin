@@ -11,6 +11,7 @@ ObjType :: enum {
 	ObjUpvalue,
 	ObjClass,
 	ObjInstance,
+	ObjBoundMethod,
 }
 
 Obj :: struct {
@@ -49,12 +50,19 @@ ObjUpvalue :: struct {
 ObjClass :: struct {
 	using obj: Obj,
 	name:      string,
+	methods:   map[string]Value,
 }
 
 ObjInstance :: struct {
 	using obj: Obj,
 	class:     ^ObjClass,
 	fields:    map[string]Value,
+}
+
+ObjBoundMethod :: struct {
+	using obj: Obj,
+	reciever:  Value,
+	method:    ^ObjClosure,
 }
 
 allocate_object :: proc($T: typeid, type: ObjType) -> ^T {
@@ -124,6 +132,7 @@ new_upvalue :: proc(slot: ^Value) -> ^ObjUpvalue {
 new_class :: proc(name: string) -> ^ObjClass {
 	class := allocate_object(ObjClass, .ObjClass)
 	class.name = name
+	class.methods = make(map[string]Value)
 	return class
 }
 
@@ -134,8 +143,15 @@ new_instance :: proc(class: ^ObjClass) -> ^ObjInstance {
 	return instance
 }
 
+new_bound_method :: proc(reciever: Value, method: ^ObjClosure) -> ^ObjBoundMethod {
+	bound := allocate_object(ObjBoundMethod, .ObjBoundMethod)
+	bound.reciever = reciever
+	bound.method = method
+	return bound
+}
+
 free_object :: proc(object: ^Obj) {
-	when DEBUG_LOG_GC do fmt.printfln("%p free type %v of size", object, object.type) // TODO: Inaccurate. Add fields.
+	when DEBUG_LOG_GC do fmt.printfln("%p free type %v of size", object, object.type) // NOTE: Inaccurate
 
 	switch object.type {
 	case .ObjString:
@@ -162,6 +178,11 @@ free_object :: proc(object: ^Obj) {
 		vm.bytes_allocated -= size_of(function.chunk)
 		free_chunk(&function.chunk)
 
+		when REPL {
+			vm.bytes_allocated -= size_of(function.name)
+			delete(function.name)
+		}
+
 		vm.bytes_allocated -= size_of(function)
 		free(function)
 
@@ -174,6 +195,9 @@ free_object :: proc(object: ^Obj) {
 	case .ObjClass:
 		class := cast(^ObjClass)object
 
+		vm.bytes_allocated -= size_of(class.methods)
+		delete(class.methods)
+
 		vm.bytes_allocated -= size_of(class)
 		free(class)
 
@@ -185,27 +209,37 @@ free_object :: proc(object: ^Obj) {
 
 		vm.bytes_allocated -= size_of(instance)
 		free(instance)
+
+	case .ObjBoundMethod:
+		bound := cast(^ObjBoundMethod)object
+
+		vm.bytes_allocated -= size_of(bound)
+		free(bound)
+
 	}
 }
 
 print_object :: proc(object: ^Obj) {
 	switch object.type {
 	case .ObjString:
-		fmt.printf((^ObjString)(object).str)
+		fmt.print((^ObjString)(object).str)
 	case .ObjClosure:
 		function := (^ObjClosure)(object).function
 		print_function(function)
 	case .ObjFunction:
-		function := (^ObjFunction)(object)
+		function := cast(^ObjFunction)object
 		print_function(function)
 	case .ObjUpvalue:
 		fmt.print("upvalue")
 	case .ObjClass:
-		class := (^ObjClass)(object)
+		class := cast(^ObjClass)object
 		fmt.printf("<class %s>", class.name)
 	case .ObjInstance:
-		instance := (^ObjInstance)(object)
+		instance := cast(^ObjInstance)object
 		fmt.printf("<instance %s>", instance.class.name)
+	case .ObjBoundMethod:
+		bound_method := cast(^ObjBoundMethod)object
+		print_function(bound_method.method.function)
 	}
 }
 

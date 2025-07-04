@@ -2,6 +2,7 @@ package loxi
 
 import "core:fmt"
 import "core:strconv"
+import "core:strings"
 
 Parser :: struct {
 	current:    Token,
@@ -43,8 +44,14 @@ Compiler :: struct {
 	scope_depth: u8,
 }
 
+ClassCompiler :: struct {
+	enclosing: ^ClassCompiler,
+}
+
 FunctionType :: enum {
 	Function,
+	Initializer,
+	Method,
 	Script,
 }
 
@@ -61,20 +68,18 @@ Upvalue :: struct {
 
 parser := Parser{}
 current: ^Compiler = nil
+current_class: ^ClassCompiler = nil
 
 compile :: proc(source: ^[]u8) -> ^ObjFunction {
 	init_scanner(source)
 
+	parser = Parser{}
+
 	compiler := Compiler{}
 	init_compiler(&compiler, .Script)
 
-	parser = Parser{}
-
 	advance()
-
-	for !match(.Eof) {
-		declaration()
-	}
+	for !match(.Eof) do declaration()
 
 	return parser.had_error ? nil : end_compiler()
 }
@@ -88,12 +93,22 @@ init_compiler :: proc(compiler: ^Compiler, type: FunctionType) {
 
 	current = compiler
 
-	if type != .Script do current.function.name = parser.previous.lexeme
+	if type != .Script do when REPL {
+		current.function.name = strings.clone(parser.previous.lexeme)
+	} else {
+		current.function.name = parser.previous.lexeme
+	}
 
 	local := &current.locals[current.local_count]
 	current.local_count += 1
 	local.depth = 0
 	local.is_captured = false
+
+	if (type != .Function) {
+		local.name.lexeme = "this"
+	} else {
+		local.name.lexeme = ""
+	}
 }
 
 end_compiler :: proc() -> ^ObjFunction {
@@ -173,6 +188,8 @@ return_statement :: proc() {
 	if match(.Semicolon) {
 		emit_return()
 	} else {
+		if current.ftype == .Initializer do error_at_previous("Can't return from an initializer.")
+
 		expression()
 		consume(.Semicolon, "Expect ';' after return value.")
 		emit_code(.Return)
@@ -254,19 +271,9 @@ for_statement :: proc() {
 	end_scope()
 }
 
-var_declaration :: proc() {
-	global := parse_variable("Expect variable name.")
-
-	if match(.Equal) do expression()
-	else do emit_code(OpCode.Nil)
-	consume(.Semicolon, "Expect ';' after variable declaration.")
-
-	define_variable(global)
-}
-
 function_statement :: proc(ftype: FunctionType) {
 	compiler := Compiler{}
-	init_compiler(&compiler, .Function)
+	init_compiler(&compiler, ftype)
 	begin_scope()
 
 	consume(.LeftParen, "Expect '(' after function name.")
@@ -295,6 +302,27 @@ function_statement :: proc(ftype: FunctionType) {
 	}
 }
 
+method :: proc() {
+	consume(.Identifier, "Expect method name.")
+	constant := identifier_constant(&parser.previous)
+
+	type: FunctionType = parser.previous.lexeme == "init" ? .Initializer : .Method
+
+	function_statement(type)
+	emit_bytes(u8(OpCode.Method), constant)
+}
+
+var_declaration :: proc() {
+	global := parse_variable("Expect variable name.")
+
+	if match(.Equal) do expression()
+	else do emit_code(OpCode.Nil)
+	consume(.Semicolon, "Expect ';' after variable declaration.")
+
+	define_variable(global)
+}
+
+
 function_declaration :: proc() {
 	global := parse_variable("Expect function name.")
 	mark_initialized()
@@ -304,14 +332,25 @@ function_declaration :: proc() {
 
 class_declaration :: proc() {
 	consume(.Identifier, "Expect class name.")
+	class_name := parser.previous
 	name_constant := identifier_constant(&parser.previous)
 	declare_variable()
 
 	emit_bytes(u8(OpCode.Class), name_constant)
 	define_variable(name_constant)
 
+	class_compiler := ClassCompiler {
+		enclosing = current_class,
+	}
+	current_class = &class_compiler
+
+	named_variable(&class_name, false)
 	consume(.LeftBrace, "Expect '{' before class body.")
+	for !check(.RightBrace) && !check(.LeftBrace) do method()
 	consume(.RightBrace, "Expect '}' before class body.")
+	emit_code(OpCode.Pop)
+
+	current_class = current_class.enclosing
 }
 
 synchronize :: proc() {
@@ -371,6 +410,7 @@ string_parse :: proc(can_assign: bool) {
 }
 
 // WARN: Book passes `name` by value
+// TODO: Deal with ointer indirection
 named_variable :: proc(name: ^Token, can_assign: bool) {
 	get_op: u8 = 0
 	set_op: u8 = 0
@@ -399,6 +439,15 @@ named_variable :: proc(name: ^Token, can_assign: bool) {
 
 variable :: proc(can_assign: bool) {
 	named_variable(&parser.previous, can_assign)
+}
+
+this :: proc(can_assign: bool) {
+	if current_class == nil {
+		error_at_previous("Can't use 'this' outside of class.")
+		return
+	}
+
+	variable(false)
 }
 
 unary :: proc(can_assign: bool) {
@@ -461,6 +510,10 @@ dot :: proc(can_assign: bool) {
 	if can_assign && match(.Equal) {
 		expression()
 		emit_bytes(u8(OpCode.SetProperty), name)
+	} else if match(.LeftParen) {
+		arg_count := argument_list()
+		emit_bytes(u8(OpCode.Invoke), name)
+		emit_byte(arg_count)
 	} else {
 		emit_bytes(u8(OpCode.GetProperty), name)
 	}
@@ -560,7 +613,7 @@ rules := []ParseRule {
 	TokenType.Print        = ParseRule{nil, nil, .None},
 	TokenType.Return       = ParseRule{nil, nil, .None},
 	TokenType.Super        = ParseRule{nil, nil, .None},
-	TokenType.This         = ParseRule{nil, nil, .None},
+	TokenType.This         = ParseRule{this, nil, .None},
 	TokenType.True         = ParseRule{literal, nil, .None},
 	TokenType.Var          = ParseRule{nil, nil, .None},
 	TokenType.While        = ParseRule{nil, nil, .None},
@@ -727,11 +780,13 @@ emit_byte :: proc(byte: u8) {
 }
 
 emit_code :: proc(opcode: OpCode) {
-	write_chunk(current_chunk(), u8(opcode), parser.previous.line)
+	emit_byte(u8(opcode))
 }
 
 emit_return :: proc() {
-	emit_code(OpCode.Nil)
+	if current.ftype == .Initializer do emit_bytes(u8(OpCode.GetLocal), 0)
+	else do emit_code(OpCode.Nil)
+
 	emit_code(OpCode.Return)
 }
 

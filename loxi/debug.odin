@@ -28,6 +28,8 @@ disassemble_instruction :: proc(chunk: ^Chunk, offset: uint) -> uint {
 		return simple_instruction("RETURN", offset)
 	case .Call:
 		return byte_instruction("CALL", chunk, offset)
+	case .Invoke:
+		return invoke_instruction("INVOKE", chunk, offset)
 	case .Jump:
 		return jump_instruction("JUMP", true, chunk, offset)
 	case .JumpIfFalse:
@@ -58,6 +60,8 @@ disassemble_instruction :: proc(chunk: ^Chunk, offset: uint) -> uint {
 		return constant_instruction("SET_PROPERTY", chunk, offset)
 	case .Class:
 		return constant_instruction("CLASS", chunk, offset)
+	case .Method:
+		return constant_instruction("METHOD", chunk, offset)
 	case .Nil:
 		return simple_instruction("NIL", offset)
 	case .True:
@@ -133,6 +137,15 @@ constant_instruction :: proc(name: string, c: ^Chunk, offset: uint) -> uint {
 	print_value(c.constants[constant])
 	fmt.println("'")
 	return offset + 2
+}
+
+invoke_instruction :: proc(name: string, c: ^Chunk, offset: uint) -> uint {
+	constant := c.code[offset + 1]
+	arg_count := c.code[offset + 2]
+	fmt.printf("%-16s (%d args) % 4d '", name, arg_count, constant)
+	print_value(c.constants[constant])
+	fmt.println("'")
+	return offset + 3
 }
 
 jump_instruction :: proc(name: string, sign: bool, chunk: ^Chunk, offset: uint) -> uint {

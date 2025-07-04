@@ -3,6 +3,7 @@ package loxi
 OpCode :: enum u8 {
 	Return,
 	Call,
+	Invoke,
 	Closure,
 	Jump,
 	JumpIfFalse,
@@ -19,6 +20,7 @@ OpCode :: enum u8 {
 	GetProperty,
 	SetProperty,
 	Class,
+	Method,
 	Nil,
 	True,
 	False,

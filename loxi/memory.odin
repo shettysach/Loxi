@@ -66,7 +66,7 @@ mark_object :: proc(object: ^Obj) {
 mark_table :: proc(table: ^map[string]Value) {
 	for k, v in table {
 		mark_value(v)
-		mark_object(cast(^Obj)vm.strings[k])
+		when REPL do mark_object(cast(^Obj)vm.strings[k])
 	}
 }
 
@@ -107,10 +107,15 @@ blacken_object :: proc(object: ^Obj) {
 	case .ObjClass:
 		class := cast(^ObjClass)object
 		mark_object(class)
+		mark_table(&class.methods)
 	case .ObjInstance:
 		instance := cast(^ObjInstance)object
 		mark_object(instance)
 		mark_table(&instance.fields)
+	case .ObjBoundMethod:
+		bound := cast(^ObjBoundMethod)object
+		mark_value(bound.reciever)
+		mark_object(bound.method)
 	}
 }
 
