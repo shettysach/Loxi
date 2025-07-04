@@ -5,6 +5,7 @@ import "core:fmt"
 Nil :: struct {
 }
 
+
 Value :: union #no_nil {
 	f64,
 	bool,

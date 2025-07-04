@@ -3,9 +3,9 @@ package loxi
 import "core:fmt"
 import "core:mem"
 
-DEBUG_PRINT_CODE :: false
-DEBUG_TRACE_EXECUTION :: false
-DEBUG_LOG_GC :: false
+DEBUG_PRINT_CODE :: #config(PRINT_CODE, false)
+DEBUG_TRACE_EXECUTION :: #config(TRACE_EXECUTION, false)
+DEBUG_LOG_GC :: #config(LOG_GC, false)
 
 disassemble_chunk :: proc(c: ^Chunk, name: string) {
 	fmt.printfln("== %s ==", name)
@@ -14,7 +14,7 @@ disassemble_chunk :: proc(c: ^Chunk, name: string) {
 }
 
 disassemble_instruction :: proc(chunk: ^Chunk, offset: uint) -> uint {
-	offset := offset // Can't assign to a procdeure parameter
+	offset := offset
 	fmt.printf("% 4d ", offset)
 
 	if offset > 0 && chunk.lines[offset] == chunk.lines[offset - 1] do fmt.printf("   | ")
