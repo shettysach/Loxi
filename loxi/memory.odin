@@ -40,7 +40,7 @@ mark_roots :: proc() {
 }
 
 mark_value :: proc(value: Value) {
-	if object, ok := value.(^Obj); ok do mark_object(object)
+	if object, ok := try_object(value); ok do mark_object(object)
 }
 
 mark_array :: proc(array: ^[dynamic]Value) {

@@ -2,6 +2,7 @@ package loxi
 
 import "core:fmt"
 import "core:strconv"
+import "core:strings"
 
 Parser :: struct {
 	current:    Token,
@@ -294,7 +295,7 @@ function_statement :: proc(ftype: FunctionType) {
 	block()
 
 	function := end_compiler()
-	emit_bytes(u8(OpCode.Closure), make_constant(cast(^Obj)function))
+	emit_bytes(u8(OpCode.Closure), make_constant(object_val(cast(^Obj)function)))
 
 	for i in 0 ..< function.upvalue_count {
 		emit_byte(compiler.upvalues[i].is_local ? 1 : 0)
@@ -418,14 +419,14 @@ grouping :: proc(can_assign: bool) {
 @(private = "file")
 number :: proc(can_assign: bool) {
 	value := strconv.atof(parser.previous.lexeme)
-	emit_constant(value)
+	emit_constant(number_val(value))
 }
 
 string_parse :: proc(can_assign: bool) {
 	lexeme := parser.previous.lexeme
 	trimmed := lexeme[1:len(lexeme) - 1]
 	object := cast(^Obj)copy_string(trimmed)
-	emit_constant(Value(object))
+	emit_constant(object_val(object))
 }
 
 named_variable :: proc(name: string, can_assign: bool) {
@@ -715,7 +716,7 @@ or_parse :: proc(can_assign: bool) {
 
 identifier_constant :: proc(name: string) -> u8 {
 	obj := cast(^Obj)copy_string(name)
-	return make_constant(obj)
+	return make_constant(object_val(obj))
 }
 
 resolve_local :: proc(compiler: ^Compiler, name: string) -> Maybe(u8) {

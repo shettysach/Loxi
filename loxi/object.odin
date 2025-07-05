@@ -90,7 +90,7 @@ allocate_string :: proc(str: string) -> ^ObjString {
 	obj_string := allocate_object(ObjString, .ObjString)
 	obj_string.str = str
 
-	push(cast(^Obj)obj_string)
+	push(object_val(obj_string))
 	vm.strings[str] = obj_string
 	pop()
 
@@ -138,7 +138,7 @@ new_native :: proc(function: NativeFn) -> ^ObjNative {
 new_upvalue :: proc(slot: ^Value) -> ^ObjUpvalue {
 	upvalue := allocate_object(ObjUpvalue, .ObjUpvalue)
 	upvalue.location = slot
-	upvalue.closed = Nil{}
+	upvalue.closed = NIL
 	return upvalue
 }
 

@@ -33,7 +33,7 @@ CallFrame :: struct {
 vm := VirtMach{}
 
 clock_native :: proc(args: []Value) -> Value {
-	return f64(time.now()._nsec)
+	return number_val(f64(time.now()._nsec))
 }
 
 init_vm :: proc() {
@@ -83,16 +83,22 @@ interpret :: proc(source: ^[]u8) -> InterpretResult {
 
 	if function == nil do return .CompileError
 
-	push(cast(^Obj)function)
+	push(object_val(cast(^Obj)function))
 	closure := new_closure(function)
 	pop()
-	push(cast(^Obj)closure)
+	push(object_val(cast(^Obj)closure))
 	call(closure, 0)
 
 	return run()
 }
 
 run :: proc() -> InterpretResult {
+	when DEBUG_PRINT_CODE do fmt.printfln(
+		"NaN boxing: %v, Size of Value: %v\n",
+		NAN_BOXING,
+		size_of(Value),
+	)
+
 	frame := &vm.frames[vm.frame_count - 1]
 
 	for {
@@ -120,10 +126,10 @@ run :: proc() -> InterpretResult {
 			frame = &vm.frames[vm.frame_count - 1]
 
 		case .Closure:
-			object := read_constant(frame).(^Obj)
+			object := as_object(read_constant(frame))
 			function := cast(^ObjFunction)object
 			closure := new_closure(function)
-			push(cast(^Obj)closure)
+			push(object_val(cast(^Obj)closure))
 
 			for i in 0 ..< closure.upvalue_count {
 				is_local := read_byte(frame) != 0
@@ -147,7 +153,7 @@ run :: proc() -> InterpretResult {
 		case .SuperInvoke:
 			method := read_string(frame)
 			arg_count := read_byte(frame)
-			superclass := cast(^ObjClass)pop().(^Obj)
+			superclass := cast(^ObjClass)as_object(pop())
 
 			if !invoke_from_class(superclass, method, arg_count) do return .RuntimeError
 
@@ -217,7 +223,7 @@ run :: proc() -> InterpretResult {
 			pop()
 
 		case .GetProperty:
-			object, ok := peek(0).(^Obj)
+			object, ok := try_object(peek(0))
 
 			if !ok || object.type != .ObjInstance {
 				runtime_error("Only instances have properties.")
@@ -236,7 +242,7 @@ run :: proc() -> InterpretResult {
 			if !bind_method(instance.class, name) do return .RuntimeError
 
 		case .SetProperty:
-			object, ok := peek(1).(^Obj)
+			object, ok := try_object(peek(1))
 
 			if !ok || object.type != .ObjInstance {
 				runtime_error("Only instances have fields.")
@@ -251,20 +257,20 @@ run :: proc() -> InterpretResult {
 
 		case .GetSuper:
 			name := read_string(frame)
-			superclass := cast(^ObjClass)pop().(^Obj)
+			superclass := cast(^ObjClass)as_object(pop())
 
 			if !bind_method(superclass, name) do return .RuntimeError
 
 		case .Class:
-			push((^Obj)(new_class(read_string(frame))))
+			push(object_val(new_class(read_string(frame))))
 
 		case .Inherit:
-			superclass := cast(^ObjClass)peek(1).(^Obj)
+			superclass := cast(^ObjClass)as_object(peek(1))
 			if superclass.type != .ObjClass {
 				runtime_error("Superclass must be a class.")
 				return .RuntimeError
 			}
-			subclass := cast(^ObjClass)peek(0).(^Obj)
+			subclass := cast(^ObjClass)as_object(peek(0))
 			for name, method in superclass.methods {
 				superclass.methods[name] = method
 			}
@@ -274,13 +280,13 @@ run :: proc() -> InterpretResult {
 			define_method(read_string(frame))
 
 		case .Nil:
-			push(Nil{})
-
-		case .True:
-			push(true)
+			push(NIL)
 
 		case .False:
-			push(false)
+			push(FALSE)
+
+		case .True:
+			push(TRUE)
 
 		case .Equal:
 			b := pop()
@@ -288,8 +294,8 @@ run :: proc() -> InterpretResult {
 			push(values_equal(a, b))
 
 		case .Greater:
-			b, b_ok := peek(0).(f64)
-			a, a_ok := peek(1).(f64)
+			b, b_ok := try_number(peek(0))
+			a, a_ok := try_number(peek(1))
 
 			if !b_ok || !a_ok {
 				runtime_error("Operand must be a number.")
@@ -298,11 +304,11 @@ run :: proc() -> InterpretResult {
 
 			pop()
 			pop()
-			push(a > b)
+			push(bool_val(a > b))
 
 		case .Less:
-			b, b_ok := peek(0).(f64)
-			a, a_ok := peek(1).(f64)
+			b, b_ok := try_number(peek(0))
+			a, a_ok := try_number(peek(1))
 
 			if !b_ok || !a_ok {
 				runtime_error("Operand must be a number.")
@@ -311,13 +317,13 @@ run :: proc() -> InterpretResult {
 
 			pop()
 			pop()
-			push(a < b)
+			push(bool_val(a < b))
 
 		case .Not:
-			push(is_falsey(pop()))
+			push(bool_val(is_falsey(pop())))
 
 		case .Negate:
-			v, ok := peek(0).(f64)
+			v, ok := try_number(peek(0))
 
 			if !ok {
 				runtime_error("Operand must be a number.")
@@ -325,21 +331,21 @@ run :: proc() -> InterpretResult {
 			}
 
 			pop()
-			push(-v)
+			push(number_val(-v))
 
 		case .Add:
-			b, b_ok := peek(0).(f64)
-			a, a_ok := peek(1).(f64)
+			b, b_ok := try_number(peek(0))
+			a, a_ok := try_number(peek(1))
 
 			if a_ok && b_ok {
 				pop()
 				pop()
-				push(a + b)
+				push(number_val(a + b))
 				break
 			}
 
-			b_obj, b_obj_ok := peek(0).(^Obj)
-			a_obj, a_obj_ok := peek(1).(^Obj)
+			b_obj, b_obj_ok := try_object(peek(0))
+			a_obj, a_obj_ok := try_object(peek(1))
 
 			if a_obj_ok && b_obj_ok && a_obj.type == .ObjString && b_obj.type == .ObjString {
 				pop()
@@ -352,8 +358,8 @@ run :: proc() -> InterpretResult {
 			return .RuntimeError
 
 		case .Subtract:
-			b, b_ok := peek(0).(f64)
-			a, a_ok := peek(1).(f64)
+			b, b_ok := try_number(peek(0))
+			a, a_ok := try_number(peek(1))
 
 			if !b_ok || !a_ok {
 				runtime_error("Operands must be numbers.")
@@ -362,11 +368,11 @@ run :: proc() -> InterpretResult {
 
 			pop()
 			pop()
-			push(a - b)
+			push(number_val(a - b))
 
 		case .Multiply:
-			b, b_ok := peek(0).(f64)
-			a, a_ok := peek(1).(f64)
+			b, b_ok := try_number(peek(0))
+			a, a_ok := try_number(peek(1))
 
 			if !b_ok || !a_ok {
 				runtime_error("Operands must be numbers.")
@@ -375,11 +381,11 @@ run :: proc() -> InterpretResult {
 
 			pop()
 			pop()
-			push(a * b)
+			push(number_val(a * b))
 
 		case .Divide:
-			b, b_ok := peek(0).(f64)
-			a, a_ok := peek(1).(f64)
+			b, b_ok := try_number(peek(0))
+			a, a_ok := try_number(peek(1))
 
 			if !b_ok || !a_ok {
 				runtime_error("Operands must be numbers.")
@@ -388,7 +394,7 @@ run :: proc() -> InterpretResult {
 
 			pop()
 			pop()
-			push(a / b)
+			push(number_val(a / b))
 
 		case .Print:
 			print_value(pop())
@@ -421,7 +427,7 @@ read_constant :: proc(frame: ^CallFrame) -> Value {
 }
 
 read_string :: proc(frame: ^CallFrame) -> string {
-	obj := read_constant(frame).(^Obj)
+	obj := as_object(read_constant(frame))
 	str := (^ObjString)(obj).str
 	return str
 }
@@ -442,19 +448,20 @@ peek :: proc(distance: u8) -> Value {
 }
 
 call_value :: proc(callee: Value, arg_count: u8) -> bool {
-	if obj, ok := callee.(^Obj); ok {
+	if obj, ok := try_object(callee); ok {
 		#partial switch obj.type {
 
 		case .ObjBoundMethod:
-			bound := cast(^ObjBoundMethod)callee.(^Obj)
+			bound := cast(^ObjBoundMethod)as_object(callee)
 			mem.ptr_offset(vm.stack_top, -int(arg_count) - 1)^ = bound.reciever
 			return call(bound.method, arg_count)
 
 		case .ObjClass:
-			class := cast(^ObjClass)callee.(^Obj)
-			mem.ptr_offset(vm.stack_top, -int(arg_count) - 1)^ = cast(^Obj)new_instance(class)
+			class := cast(^ObjClass)as_object(callee)
+			object := cast(^Obj)new_instance(class)
+			mem.ptr_offset(vm.stack_top, -int(arg_count) - 1)^ = object_val(object)
 			if initializer, ok := class.methods["init"]; ok {
-				return call(cast(^ObjClosure)initializer.(^Obj), arg_count)
+				return call(cast(^ObjClosure)as_object(initializer), arg_count)
 			} else if arg_count != 0 {
 				runtime_error("Expected 0 arguments but got %d.", arg_count)
 				return false
@@ -465,7 +472,7 @@ call_value :: proc(callee: Value, arg_count: u8) -> bool {
 			return call(cast(^ObjClosure)obj, arg_count)
 
 		case .ObjNative:
-			object := cast(^ObjNative)callee.(^Obj)
+			object := cast(^ObjNative)as_object(callee)
 			native := object.function
 			args_ptr := mem.ptr_offset(vm.stack_top, -int(arg_count))
 			args_slice := slice.from_ptr(args_ptr, int(arg_count))
@@ -483,7 +490,7 @@ call_value :: proc(callee: Value, arg_count: u8) -> bool {
 invoke :: proc(name: string, arg_count: u8) -> bool {
 	reciever := peek(arg_count)
 
-	object, ok := reciever.(^Obj)
+	object, ok := try_object(reciever)
 	if !ok || object.type != .ObjInstance {
 		runtime_error("Only instances have methods.")
 		return false
@@ -501,7 +508,7 @@ invoke :: proc(name: string, arg_count: u8) -> bool {
 
 invoke_from_class :: proc(class: ^ObjClass, name: string, arg_count: u8) -> bool {
 	if method, ok := class.methods[name]; ok {
-		return call(cast(^ObjClosure)method.(^Obj), arg_count)
+		return call(cast(^ObjClosure)as_object(method), arg_count)
 	}
 
 	runtime_error("Undefined property '%s'.", name)
@@ -540,7 +547,7 @@ close_upvalues :: proc(last: ^Value) {
 
 define_method :: proc(name: string) {
 	method := peek(0)
-	class := cast(^ObjClass)peek(1).(^Obj)
+	class := cast(^ObjClass)as_object(peek(1))
 	class.methods[name] = method
 	pop()
 }
@@ -553,10 +560,10 @@ bind_method :: proc(class: ^ObjClass, name: string) -> bool {
 		return false
 	}
 
-	bound := new_bound_method(peek(0), cast(^ObjClosure)method.(^Obj))
+	bound := new_bound_method(peek(0), cast(^ObjClosure)as_object(method))
 
 	pop()
-	push(cast(^Obj)bound)
+	push(object_val(cast(^Obj)bound))
 	return true
 }
 
@@ -580,8 +587,8 @@ call :: proc(closure: ^ObjClosure, arg_count: u8) -> bool {
 }
 
 is_falsey :: proc(value: Value) -> bool {
-	v, ok := value.(bool)
-	return value == Nil{} || ok && !v
+	bool, ok := try_bool(value)
+	return value == NIL || ok && !bool
 }
 
 concatenate :: proc(a, b: ^Obj) -> Value {
@@ -591,15 +598,15 @@ concatenate :: proc(a, b: ^Obj) -> Value {
 	c_str := strings.concatenate({a_str, b_str})
 	c_obj := cast(^Obj)take_string(c_str)
 
-	return c_obj
+	return object_val(c_obj)
 }
 
-values_equal :: proc(val_a, val_b: Value) -> bool {
-	a, a_ok := val_a.(^Obj)
-	b, b_ok := val_b.(^Obj)
+values_equal :: proc(val_a, val_b: Value) -> Value {
+	a, a_ok := try_object(val_a)
+	b, b_ok := try_object(val_b)
 
-	if a_ok && b_ok do return a == b
-	else do return val_a == val_b
+	if a_ok && b_ok do return bool_val(a == b)
+	else do return bool_val(val_a == val_b)
 }
 
 runtime_error :: proc(format: string, args: ..any) {
@@ -621,8 +628,8 @@ runtime_error :: proc(format: string, args: ..any) {
 }
 
 define_native :: proc(name: string, function: NativeFn) {
-	push(cast(^Obj)copy_string(name))
-	push(cast(^Obj)new_native(function))
+	push(object_val(copy_string(name)))
+	push(object_val(new_native(function)))
 	vm.globals[name] = vm.stack[1]
 	pop()
 	pop()
