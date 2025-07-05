@@ -41,7 +41,7 @@ init_vm :: proc() {
 	vm.globals = make(map[string]Value)
 	vm.strings = make(map[string]^ObjString)
 	vm.gray_stack = make([dynamic]^Obj)
-	vm.next_gc = 1024 * 1024
+	vm.next_gc = 10
 	define_native("clock", clock_native)
 }
 

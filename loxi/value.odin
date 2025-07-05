@@ -14,6 +14,7 @@ when NAN_BOXING {
 
 	QNAN: Value : 0x7ffc000000000000
 	SIGN_BIT: Value : 0x8000000000000000
+
 } else {
 
 	Value :: union {
@@ -44,8 +45,8 @@ try_number :: proc(value: Value) -> (f64, bool) {
 	}
 }
 
-bool_val :: proc(bool: bool) -> Value {
-	return bool ? TRUE : FALSE when NAN_BOXING else bool
+bool_val :: #force_inline proc(b: bool) -> Value {
+	return b ? TRUE : FALSE
 }
 
 try_bool :: proc(value: Value) -> (bool, bool) {
@@ -74,17 +75,13 @@ try_object :: proc(value: Value) -> (^Obj, bool) {
 
 print_value :: proc(value: Value) {
 	when NAN_BOXING {
-		if number, ok := try_number(value); ok {
-			fmt.print(number)
-		} else if bool, ok := try_bool(value); ok {
-			fmt.print(bool)
-		} else if object, ok := try_object(value); ok {
-			print_object(object)
-		} else if value == NIL {
-			fmt.print("nil")
-		}
+		if number, ok := try_number(value); ok do fmt.print(number)
+		else if bool, ok := try_bool(value); ok do fmt.print(bool)
+		else if object, ok := try_object(value); ok do print_object(object)
+		else if value == NIL do fmt.print("nil")
 	} else {
 		if object, ok := value.(^Obj); ok do print_object(object)
 		else do fmt.print(value)
 	}
 }
+

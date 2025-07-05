@@ -201,7 +201,7 @@ free_object :: proc(object: ^Obj) {
 		free(function)
 
 	case .ObjNative:
-		native := cast(^ObjUpvalue)object
+		native := cast(^ObjNative)object
 		free(native)
 
 	case .ObjUpvalue:

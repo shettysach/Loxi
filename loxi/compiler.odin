@@ -365,7 +365,7 @@ class_declaration :: proc() {
 	named_variable(class_name, false)
 	consume(.LeftBrace, "Expect '{' before class body.")
 	for !check(.RightBrace) && !check(.LeftBrace) do method()
-	consume(.RightBrace, "Expect '}' before class body.")
+	consume(.RightBrace, "Expect '}' after class body.")
 	emit_code(OpCode.Pop)
 
 	if class_compiler.has_super do end_scope()
@@ -871,7 +871,7 @@ make_constant :: proc(value: Value) -> u8 {
 	return u8(constant)
 }
 
-current_chunk :: proc() -> ^Chunk {
+current_chunk :: #force_inline proc() -> ^Chunk {
 	return &current.function.chunk
 }
 

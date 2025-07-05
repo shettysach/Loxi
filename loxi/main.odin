@@ -49,14 +49,7 @@ repl :: proc() {
 
 		if braces == 0 {
 			source := input[:]
-			switch interpret(&source) {
-			case .CompileError:
-				os.exit(65)
-			case .RuntimeError:
-				os.exit(70)
-			case .Ok:
-			}
-
+			interpret(&source)
 			clear(&input)
 			braces = 0
 		}
