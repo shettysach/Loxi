@@ -1,1 +1,7 @@
-class abcd
+class C {
+    init(a) {
+        print a;
+    }
+}
+
+var c = C(10);

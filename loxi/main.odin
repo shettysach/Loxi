@@ -3,15 +3,13 @@ package loxi
 import "core:fmt"
 import "core:os"
 
-REPL :: #config(REPL, false)
-
 main :: proc() {
 	init_vm()
 	defer free_vm()
 
 	args := os.args
 
-	when REPL {
+	if len(args) == 1 {
 		repl()
 	} else do if len(args) == 2 {
 		path := args[1]
@@ -49,7 +47,12 @@ repl :: proc() {
 
 		if braces == 0 {
 			source := input[:]
-			interpret(&source)
+
+			switch interpret(&source) {
+			case .CompileError, .RuntimeError:
+				reset_stack()
+			case .Ok:
+			}
 			clear(&input)
 			braces = 0
 		}

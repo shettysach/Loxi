@@ -82,7 +82,8 @@ compile :: proc(source: ^[]u8) -> ^ObjFunction {
 	advance()
 	for !match(.Eof) do declaration()
 
-	return parser.had_error ? nil : end_compiler()
+	result := end_compiler()
+	return parser.had_error ? nil : result
 }
 
 init_compiler :: proc(compiler: ^Compiler, type: FunctionType) {
@@ -93,23 +94,14 @@ init_compiler :: proc(compiler: ^Compiler, type: FunctionType) {
 	compiler.scope_depth = 0
 
 	current = compiler
-
-	if type != .Script do when REPL {
-		current.function.name = strings.clone(parser.previous.lexeme)
-	} else {
-		current.function.name = parser.previous.lexeme
-	}
+	if type != .Script do current.function.name = copy_string(parser.previous.lexeme)
 
 	local := &current.locals[current.local_count]
 	current.local_count += 1
 	local.depth = 0
 	local.is_captured = false
 
-	if (type != .Function) {
-		local.name = "this"
-	} else {
-		local.name = ""
-	}
+	local.name = type != .Function ? "this" : ""
 }
 
 end_compiler :: proc() -> ^ObjFunction {
@@ -117,7 +109,7 @@ end_compiler :: proc() -> ^ObjFunction {
 	function := current.function
 
 	when DEBUG_PRINT_CODE do if !parser.had_error {
-		fname := len(function.name) == 0 ? "script" : function.name
+		fname := function.name == nil ? "script" : function.name.str
 		disassemble_chunk(current_chunk(), fname)
 	}
 
@@ -364,7 +356,7 @@ class_declaration :: proc() {
 
 	named_variable(class_name, false)
 	consume(.LeftBrace, "Expect '{' before class body.")
-	for !check(.RightBrace) && !check(.LeftBrace) do method()
+	for !check(.RightBrace) && !check(.Eof) do method()
 	consume(.RightBrace, "Expect '}' after class body.")
 	emit_code(OpCode.Pop)
 
@@ -563,8 +555,7 @@ argument_list :: proc() -> u8 {
 	if !check(.RightParen) {
 		for {
 			expression()
-			if current.function.arity > 255 do error_at_current("Can't have more than 255 parameters")
-
+			if current.function.arity == 255 do error_at_current("Can't have more than 255 parameters")
 			arg_count += 1
 			if !match(.Comma) do break
 		}

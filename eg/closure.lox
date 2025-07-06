@@ -12,11 +12,11 @@ print makeCounter;
 
 var counter = 0;
 counter = makeCounter();
-counter();
-counter();
-counter();
-
 print counter;
+
+counter();
+counter();
+counter();
 
 {
     var m = 0;
@@ -29,6 +29,6 @@ print counter;
     inc();
     inc();
 
-    print "";
+    print inc;
     print m;
 }

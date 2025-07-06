@@ -1,9 +1,6 @@
 # Loxi
 
-Lox bytecode interpreter with a mark and sweep garbage collector, based on the second half of [Crafting Interpreters by Robert Nystorm](https://craftinginterpreters.com/). WIP.
-
-> [!WARNING]
-> GC bugs
+Lox bytecode interpreter with a mark and sweep garbage collector, based on the second half of [Crafting Interpreters by Robert Nystorm](https://craftinginterpreters.com/).
 
 > [!NOTE]
 > - You can use the Odin compiler's `-o:speed` flag for better performance.
@@ -16,7 +13,7 @@ Lox bytecode interpreter with a mark and sweep garbage collector, based on the s
 
 ```sh
 # repl
-odin run loxi -define:REPL=true 
+odin run loxi
 ```
 
 ```sh
@@ -28,7 +25,7 @@ odin run loxi -- <filepath>
 
 ```sh
 # repl
-odin build loxi -define:REPL=true 
+odin build loxi
 ```
 
 ```sh
@@ -52,7 +49,7 @@ odin build loxi
 
 ```sh
 # repl
-odin run loxi -define:PRINT_CODE=true -define:TRACE_EXECUTION=true -define:LOG_GC=true -define:REPL=true
+odin run loxi -define:PRINT_CODE=true -define:TRACE_EXECUTION=true -define:LOG_GC=true
 ```
 
 ```sh

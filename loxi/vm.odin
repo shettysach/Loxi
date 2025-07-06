@@ -16,10 +16,10 @@ VirtMach :: struct {
 	stack_top:       ^Value,
 	open_upvalues:   ^ObjUpvalue,
 	objects:         ^Obj,
-	globals:         map[string]Value,
+	globals:         map[^ObjString]Value,
 	strings:         map[string]^ObjString,
+	init_string:     ^ObjString,
 	gray_stack:      [dynamic]^Obj,
-	gray_count:      uint,
 	bytes_allocated: uint,
 	next_gc:         uint,
 }
@@ -38,10 +38,11 @@ clock_native :: proc(args: []Value) -> Value {
 
 init_vm :: proc() {
 	vm.stack_top = &vm.stack[0]
-	vm.globals = make(map[string]Value)
+	vm.next_gc = 1024 * 1024
+	vm.globals = make(map[^ObjString]Value)
 	vm.strings = make(map[string]^ObjString)
+	vm.init_string = copy_string("init")
 	vm.gray_stack = make([dynamic]^Obj)
-	vm.next_gc = 10
 	define_native("clock", clock_native)
 }
 
@@ -51,16 +52,14 @@ reset_stack :: proc() {
 }
 
 free_vm :: proc() {
-	vm.stack_top = nil
-	vm.open_upvalues = nil
-
 	delete(vm.globals)
 	delete(vm.strings)
 	delete(vm.gray_stack)
-
 	free_objects()
+	vm.stack_top = nil
+	vm.open_upvalues = nil
+	vm.init_string = nil
 	vm.objects = nil
-
 }
 
 free_objects :: proc() {
@@ -188,7 +187,7 @@ run :: proc() -> InterpretResult {
 		case .SetGlobal:
 			name := read_string(frame)
 			if !(name in vm.globals) {
-				runtime_error("Undefined variable '%s'.", name)
+				runtime_error("Undefined variable '%s'.", name.str)
 				return .RuntimeError
 			}
 			vm.globals[name] = peek(0)
@@ -197,7 +196,7 @@ run :: proc() -> InterpretResult {
 			name := read_string(frame)
 			value, ok := vm.globals[name]
 			if !ok {
-				runtime_error("Undefined variable '%s'.", name)
+				runtime_error("Undefined variable '%s'.", name.str)
 				return .RuntimeError
 			}
 			push(value)
@@ -426,9 +425,9 @@ read_constant :: proc(frame: ^CallFrame) -> Value {
 	return frame.closure.function.chunk.constants[read_byte(frame)]
 }
 
-read_string :: proc(frame: ^CallFrame) -> string {
+read_string :: proc(frame: ^CallFrame) -> ^ObjString {
 	obj := as_object(read_constant(frame))
-	str := (^ObjString)(obj).str
+	str := cast(^ObjString)obj
 	return str
 }
 
@@ -460,7 +459,7 @@ call_value :: proc(callee: Value, arg_count: u8) -> bool {
 			class := cast(^ObjClass)as_object(callee)
 			object := cast(^Obj)new_instance(class)
 			mem.ptr_offset(vm.stack_top, -int(arg_count) - 1)^ = object_val(object)
-			if initializer, ok := class.methods["init"]; ok {
+			if initializer, ok := class.methods[vm.init_string]; ok {
 				return call(cast(^ObjClosure)as_object(initializer), arg_count)
 			} else if arg_count != 0 {
 				runtime_error("Expected 0 arguments but got %d.", arg_count)
@@ -487,7 +486,7 @@ call_value :: proc(callee: Value, arg_count: u8) -> bool {
 	return false
 }
 
-invoke :: proc(name: string, arg_count: u8) -> bool {
+invoke :: proc(name: ^ObjString, arg_count: u8) -> bool {
 	reciever := peek(arg_count)
 
 	object, ok := try_object(reciever)
@@ -506,7 +505,7 @@ invoke :: proc(name: string, arg_count: u8) -> bool {
 	return invoke_from_class(instance.class, name, arg_count)
 }
 
-invoke_from_class :: proc(class: ^ObjClass, name: string, arg_count: u8) -> bool {
+invoke_from_class :: proc(class: ^ObjClass, name: ^ObjString, arg_count: u8) -> bool {
 	if method, ok := class.methods[name]; ok {
 		return call(cast(^ObjClosure)as_object(method), arg_count)
 	}
@@ -545,14 +544,14 @@ close_upvalues :: proc(last: ^Value) {
 
 }
 
-define_method :: proc(name: string) {
+define_method :: proc(name: ^ObjString) {
 	method := peek(0)
 	class := cast(^ObjClass)as_object(peek(1))
 	class.methods[name] = method
 	pop()
 }
 
-bind_method :: proc(class: ^ObjClass, name: string) -> bool {
+bind_method :: proc(class: ^ObjClass, name: ^ObjString) -> bool {
 	method, ok := class.methods[name]
 
 	if !ok {
@@ -616,9 +615,9 @@ runtime_error :: proc(format: string, args: ..any) {
 	for i := vm.frame_count - 1;; i -= 1 {
 		frame := &vm.frames[i]
 		function := frame.closure.function
-		instruction := frame.closure.function.chunk.code[frame.ip - 1]
+		instruction: uint = len(function.chunk.code) - frame.ip - 1
 
-		fname := len(function.name) == 0 ? "script" : function.name
+		fname := function.name == nil ? "script" : function.name.str
 		fmt.eprintfln("[line %d] in %s", function.chunk.lines[instruction], fname)
 
 		if i == 0 do break
@@ -630,6 +629,7 @@ runtime_error :: proc(format: string, args: ..any) {
 define_native :: proc(name: string, function: NativeFn) {
 	push(object_val(copy_string(name)))
 	push(object_val(new_native(function)))
+	name := cast(^ObjString)as_object(vm.stack[0])
 	vm.globals[name] = vm.stack[1]
 	pop()
 	pop()

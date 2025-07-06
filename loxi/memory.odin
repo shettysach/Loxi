@@ -37,6 +37,7 @@ mark_roots :: proc() {
 
 	mark_table(&vm.globals)
 	mark_compiler_roots()
+	mark_object(vm.init_string)
 }
 
 mark_value :: proc(value: Value) {
@@ -53,20 +54,18 @@ mark_object :: proc(object: ^Obj) {
 
 	when DEBUG_LOG_GC {
 		fmt.printf("%p mark ", object)
-		print_value(object)
+		print_object(object)
 		fmt.println()
 	}
 
 	object.is_marked = true
-
 	append_elem(&vm.gray_stack, object)
-	vm.gray_count += 1
 }
 
-mark_table :: proc(table: ^map[string]Value) {
+mark_table :: proc(table: ^map[^ObjString]Value) {
 	for k, v in table {
+		mark_object(k)
 		mark_value(v)
-		when REPL do mark_object(cast(^Obj)vm.strings[k])
 	}
 }
 
@@ -79,17 +78,14 @@ mark_compiler_roots :: proc() {
 }
 
 trace_references :: proc() {
-	for vm.gray_count > 0 {
-		vm.gray_count -= 1
-		object := vm.gray_stack[vm.gray_count]
-		blacken_object(object)
-	}
+	for object in vm.gray_stack do blacken_object(object)
+	clear(&vm.gray_stack)
 }
 
 blacken_object :: proc(object: ^Obj) {
 	when DEBUG_LOG_GC {
-		fmt.printf("[DEBUG] --- %p blacken ", object)
-		print_value(object)
+		fmt.printf("%p blacken ", object)
+		print_object(object)
 		fmt.println()
 	}
 
@@ -100,17 +96,17 @@ blacken_object :: proc(object: ^Obj) {
 		for upval in closure.upvalues do mark_object(upval)
 	case .ObjFunction:
 		function := cast(^ObjFunction)object
-		mark_object(function)
+		mark_object(function.name)
 		mark_array(&function.chunk.constants)
 	case .ObjUpvalue:
 		mark_value((^ObjUpvalue)(object).closed)
 	case .ObjClass:
 		class := cast(^ObjClass)object
-		mark_object(class)
+		mark_object(class.name)
 		mark_table(&class.methods)
 	case .ObjInstance:
 		instance := cast(^ObjInstance)object
-		mark_object(instance)
+		mark_object(instance.class)
 		mark_table(&instance.fields)
 	case .ObjBoundMethod:
 		bound := cast(^ObjBoundMethod)object
@@ -120,7 +116,7 @@ blacken_object :: proc(object: ^Obj) {
 }
 
 table_remove_white :: proc(table: ^map[string]^ObjString) {
-	for entry, value in table do if !value.is_marked do delete_key(table, entry)
+	for key, value in table do if !value.is_marked do delete_key(table, key)
 }
 
 sweep :: proc() {

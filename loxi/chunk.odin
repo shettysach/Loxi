@@ -46,6 +46,14 @@ Chunk :: struct {
 	lines:     [dynamic]uint,
 }
 
+init_chunk :: proc() -> Chunk {
+	return Chunk {
+		code = make([dynamic]u8),
+		constants = make([dynamic]Value),
+		lines = make([dynamic]uint),
+	}
+}
+
 free_chunk :: proc(c: ^Chunk) {
 	delete(c.code)
 	delete(c.constants)
