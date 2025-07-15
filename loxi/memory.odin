@@ -78,7 +78,7 @@ mark_compiler_roots :: proc() {
 }
 
 trace_references :: proc() {
-	for object in vm.gray_stack do blacken_object(object)
+	for o in vm.gray_stack do blacken_object(o)
 	clear(&vm.gray_stack)
 }
 
@@ -116,7 +116,7 @@ blacken_object :: proc(object: ^Obj) {
 }
 
 table_remove_white :: proc(table: ^map[string]^ObjString) {
-	for key, value in table do if !value.is_marked do delete_key(table, key)
+	for k, v in table do if !v.is_marked do delete_key(table, k)
 }
 
 sweep :: proc() {

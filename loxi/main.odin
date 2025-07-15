@@ -11,7 +11,7 @@ main :: proc() {
 
 	if len(args) == 1 {
 		repl()
-	} else do if len(args) == 2 {
+	} else if len(args) == 2 {
 		path := args[1]
 		run_file(path)
 	} else {
@@ -47,14 +47,8 @@ repl :: proc() {
 
 		if braces == 0 {
 			source := input[:]
-
-			switch interpret(&source) {
-			case .CompileError, .RuntimeError:
-				reset_stack()
-			case .Ok:
-			}
+			if interpret(&source) != .Ok do reset_stack()
 			clear(&input)
-			braces = 0
 		}
 	}
 }

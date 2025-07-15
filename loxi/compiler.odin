@@ -744,7 +744,7 @@ add_local :: proc(name: string) {
 
 	local := &current.locals[current.local_count]
 	current.local_count += 1
-	local.name = name // NOTE: Clone for repl?
+	local.name = name
 	local.depth = nil
 	local.is_captured = false
 }
@@ -766,7 +766,7 @@ add_upvalue :: proc(compiler: ^Compiler, index: u8, is_local: bool) -> u8 {
 	compiler.upvalues[upvalue_count].index = index
 	retval := compiler.function.upvalue_count
 	compiler.function.upvalue_count += 1
-	return upvalue_count // WARN: Book returns `compiler->function->upvalueCount++`
+	return upvalue_count
 }
 
 @(private = "file")
