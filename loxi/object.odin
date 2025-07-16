@@ -243,7 +243,7 @@ free_object :: proc(object: ^Obj) {
 print_object :: proc(object: ^Obj) {
 	switch object.type {
 	case .ObjString:
-		fmt.print((^ObjString)(object).str)
+		write_output((^ObjString)(object).str)
 	case .ObjClosure:
 		function := (^ObjClosure)(object).function
 		print_function(function)

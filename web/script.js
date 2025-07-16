@@ -4,61 +4,45 @@ async function initWasm() {
   const res = await fetch("./loxi.wasm");
   const wasmBytes = await res.arrayBuffer();
 
-const imports = {
-	odin_env:{
-    cos: Math.cos,
-    sin: Math.sin,
-    sqrt: Math.sqrt,
-    floor: Math.floor,
-    ceil: Math.ceil,
-    trunc: Math.trunc,
-    log: Math.log,
-    exp: Math.exp,
-    pow: Math.pow,
-    atan2: Math.atan2,
-    tan: Math.tan,
-    write: () => {},
-    time_now: () => {},
-    mem_set_allocator: () => {}, // no-op placeholder
-    mem_get_allocator: () => 0,
-    mem_free: () => {}
-
-
-	},
-    
-  dom_interface: {
-    read_input(ptr, len) {
-      const mem = new Uint8Array(instance.exports.memory.buffer);
-      const input = document.getElementById("code-input").value + "\n";
-      const encoded = new TextEncoder().encode(input);
-      const n = Math.min(encoded.length, len);
-      mem.set(encoded.subarray(0, n), ptr);
-      return n;
+  const imports = {
+    odin_env: {
+      write: () => {},
+      time_now: Date.now
     },
-    write_output(ptr, len) {
-      const mem = new Uint8Array(instance.exports.memory.buffer);
-      const slice = mem.subarray(ptr, ptr + len);
-      const text = new TextDecoder().decode(slice);
-      document.getElementById("output").textContent += text;
-    }
-  },
 
+    dom_interface: {
+      // Odin expects: proc(buffer: [4096]u8) -> int
+      read_input(ptr) {
+        const mem = new Uint8Array(instance.exports.memory.buffer);
+        const input = document.getElementById("code-input").value;
+        const bytes = new TextEncoder().encode(input);
+        const n = Math.min(bytes.length, 1024);
+        mem.set(bytes.subarray(0, n), ptr);
+        return n;
+      },
+
+      // Odin expects: proc(out: string) --- (lowered as ptr + len)
+      write_output(ptr, len) {
+        const mem = new Uint8Array(instance.exports.memory.buffer);
+        const text = new TextDecoder().decode(mem.subarray(ptr, ptr + len));
+        document.getElementById("output").textContent += text;
+      }
+    }
   };
 
   const { instance: inst } = await WebAssembly.instantiate(wasmBytes, imports);
   instance = inst;
+  instance.exports.setup();
 }
 
-// Called when "Send" is clicked
+
 window.submitCode = () => {
-  document.getElementById("output").textContent = "";  // clear previous
-  instance.exports.run_file();                         // call your Odin function
+  document.getElementById("output").textContent = "";
+  instance.exports.run_file();
 };
 
-// Clears the output pane
 window.clearOutput = () => {
   document.getElementById("output").textContent = "";
 };
 
-// Initialize WASM on page load
-initWasm();
+window.addEventListener("DOMContentLoaded", initWasm);

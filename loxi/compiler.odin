@@ -870,12 +870,12 @@ error_at :: proc(token: ^Token, msg: string) {
 	if parser.panic_mode {return}
 	parser.panic_mode = true
 
-	fmt.eprintf("[line %d] Error", token.line)
+	write_output(fmt.aprintf("[line %d] Error", token.line))
 
-	if (token.ttype == .Eof) do fmt.eprint(" at end")
-	else if (token.ttype != .Error) do fmt.eprintf(" at '%s'", token.lexeme)
+	if (token.ttype == .Eof) do write_output(fmt.aprint(" at end"))
+	else if (token.ttype != .Error) do write_output(fmt.aprintf(" at '%s'", token.lexeme))
 
-	fmt.eprintf(": %s\n", msg)
+	write_output(fmt.aprintf(": %s\n", msg))
 	parser.had_error = true
 }
 

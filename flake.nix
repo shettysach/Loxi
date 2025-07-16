@@ -17,10 +17,8 @@
       in {
         devShells.default = pkgs.mkShell {
           name = "odin";
-          buildInputs = with pkgs; [
-            odin
-            ols
-          ];
+          nativeBuildInputs = [pkgs.ols pkgs.miniserve pkgs.wabt];
+          buildInputs = [pkgs.odin pkgs.lld];
         };
       }
     );

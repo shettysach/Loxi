@@ -5,16 +5,26 @@
   <title>Loxi</title>
   <link rel="stylesheet" type="text/css" href="./styles.css" />
   <link rel="icon" type="image/x-icon" href="./loki.ico">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet">
 </head>
 <body>
+  <div id="top-bar">
+    <h1>LØXI</h1>
+    <div class="button-group">
+      <button onclick="submitCode()">Run</button>
+      <button class="clear" onclick="clearOutput()">Clear</button>
+    </div>
+  </div>
+
   <div id="main">
     <div id="left-panel">
-      <button onclick="submitCode()">Send</button>
-      <textarea id="code-input" placeholder="// Type your Lox code here…"></textarea>
+      <textarea id="code-input" placeholder="Type your Lox code here…"></textarea>
     </div>
     <div id="right-panel">
-      <button class="clear" onclick="clearOutput()">Clear</button>
-      <div id="output">// Output will appear here</div>
+      <div id="output">Output will appear here</div>
     </div>
   </div>
 
