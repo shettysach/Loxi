@@ -397,7 +397,7 @@ run :: proc() -> InterpretResult {
 
 		case .Print:
 			print_value(pop())
-			fmt.println()
+			write_output("\n")
 
 		case .Pop:
 			pop()

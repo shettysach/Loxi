@@ -251,15 +251,15 @@ print_object :: proc(object: ^Obj) {
 		function := cast(^ObjFunction)object
 		print_function(function)
 	case .ObjNative:
-		fmt.print("<native fn>")
+		write_output("<native fn>")
 	case .ObjUpvalue:
-		fmt.print("upvalue")
+		write_output("upvalue")
 	case .ObjClass:
 		class := cast(^ObjClass)object
-		fmt.printf("<class %s>", class.name.str)
+		write_output(fmt.aprintf("<class %s>", class.name.str))
 	case .ObjInstance:
 		instance := cast(^ObjInstance)object
-		fmt.printf("<instance %s>", instance.class.name.str)
+		write_output(fmt.aprintf("<instance %s>", instance.class.name.str))
 	case .ObjBoundMethod:
 		bound_method := cast(^ObjBoundMethod)object
 		print_function(bound_method.method.function)
@@ -268,6 +268,6 @@ print_object :: proc(object: ^Obj) {
 
 print_function :: proc(function: ^ObjFunction) {
 	name := function.name
-	if name == nil do fmt.print("<script>")
-	else do fmt.printf("<fn %s>", name.str)
+	if name == nil do write_output("<script>")
+	else do write_output(fmt.aprintf("<fn %s>", name.str))
 }

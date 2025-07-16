@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Loxi</title>
+  <link rel="stylesheet" type="text/css" href="./styles.css" />
+  <link rel="icon" type="image/x-icon" href="./loki.ico">
+</head>
+<body>
+  <div id="main">
+    <div id="left-panel">
+      <button onclick="submitCode()">Send</button>
+      <textarea id="code-input" placeholder="// Type your Lox code here…"></textarea>
+    </div>
+    <div id="right-panel">
+      <button class="clear" onclick="clearOutput()">Clear</button>
+      <div id="output">// Output will appear here</div>
+    </div>
+  </div>
+
+  <script src="script.js" defer></script>
+</body>
+</html>

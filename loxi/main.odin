@@ -1,72 +1,31 @@
 package loxi
 
-import "core:fmt"
-import "core:os"
+import "core:mem"
+
+foreign import "dom_interface"
+
+foreign dom_interface {
+	read_input :: proc "contextless" (buffer: [4096]u8) -> int ---
+	write_output :: proc "contextless" (out: string) ---
+}
 
 main :: proc() {
 	init_vm()
 	defer free_vm()
-
-	args := os.args
-
-	if len(args) == 1 {
-		repl()
-	} else if len(args) == 2 {
-		path := args[1]
-		run_file(path)
-	} else {
-		fmt.println("Usage: ./loxi.bin <file>")
-		os.exit(64)
-	}
+	run_file()
 }
 
-repl :: proc() {
-	buffer: [1024]u8
-	input := make([dynamic]u8)
+@(export)
+run_file :: proc() {
+	buffer: [4096]u8
+	n := read_input(buffer)
 
-	braces := 0
-	in_str := false
-
-	for {
-		if braces == 0 do fmt.print("> ")
-		else do fmt.print("• ")
-
-		n, err := os.read(os.stdin, buffer[:])
-		if n <= 1 && braces == 0 || err != nil do break
-
-		line := buffer[:n]
-		append(&input, ..line)
-
-		for c in line {
-			if c == '"' do in_str = !in_str
-			else if !in_str {
-				if c == '{' do braces += 1
-				else if c == '}' do braces -= 1
-			}
-		}
-
-		if braces == 0 {
-			source := input[:]
-			if interpret(&source) != .Ok do reset_stack()
-			clear(&input)
-		}
-	}
-}
-
-run_file :: proc(path: string) {
-	source, ok := os.read_entire_file(path)
-	defer delete(source)
-
-	if !ok {
-		fmt.println("Failed to read file at path:", path)
-		os.exit(74)
-	}
-
+	source := buffer[:n]
 	switch interpret(&source) {
 	case .CompileError:
-		os.exit(65)
+		write_output("Compile error\n")
 	case .RuntimeError:
-		os.exit(70)
+		write_output("Runtime error\n")
 	case .Ok:
 	}
 }
