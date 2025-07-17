@@ -297,7 +297,7 @@ run :: proc() -> InterpretResult {
 			a, a_ok := try_number(peek(1))
 
 			if !b_ok || !a_ok {
-				runtime_error("Operand must be a number.")
+				runtime_error("Operands must be a numbers.")
 				return .RuntimeError
 			}
 
@@ -310,7 +310,7 @@ run :: proc() -> InterpretResult {
 			a, a_ok := try_number(peek(1))
 
 			if !b_ok || !a_ok {
-				runtime_error("Operand must be a number.")
+				runtime_error("Operands must be numbers.")
 				return .RuntimeError
 			}
 
@@ -471,12 +471,11 @@ call_value :: proc(callee: Value, arg_count: u8) -> bool {
 			return call(cast(^ObjClosure)obj, arg_count)
 
 		case .ObjNative:
-			object := cast(^ObjNative)as_object(callee)
-			native := object.function
+			native := (^ObjNative)(as_object(callee)).function
 			args_ptr := mem.ptr_offset(vm.stack_top, -int(arg_count))
 			args_slice := slice.from_ptr(args_ptr, int(arg_count))
 			result := native(args_slice)
-			vm.stack_top = mem.ptr_offset(vm.stack_top, -int(arg_count) + 1)
+			vm.stack_top = mem.ptr_offset(vm.stack_top, -int(arg_count) - 1)
 			push(result)
 			return true
 		}
@@ -609,16 +608,15 @@ values_equal :: proc(val_a, val_b: Value) -> Value {
 }
 
 runtime_error :: proc(format: string, args: ..any) {
-	if len(args) == 0 do fmt.eprintfln(format)
-	else do fmt.eprintfln(format, args)
+	fmt.eprintfln(format, ..args)
 
 	for i := vm.frame_count - 1;; i -= 1 {
 		frame := &vm.frames[i]
 		function := frame.closure.function
-		instruction: uint = len(function.chunk.code) - frame.ip - 1
+		instruction: uint = frame.ip - 1
 
 		fname := function.name == nil ? "script" : function.name.str
-		fmt.eprintfln("[line %d] in %s", function.chunk.lines[instruction], fname)
+		fmt.eprintfln("[line %v] in %s", function.chunk.lines[instruction], fname)
 
 		if i == 0 do break
 	}

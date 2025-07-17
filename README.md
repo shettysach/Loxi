@@ -2,12 +2,15 @@
 
 Lox bytecode interpreter with a mark and sweep garbage collector, based on the second half of [Crafting Interpreters by Robert Nystorm](https://craftinginterpreters.com/).
 
+[WASM demo](https://shettysach.github.io/Loxi/)
+
 > [!NOTE]
 > - You can use the Odin compiler's `-o:speed` flag for better performance.
 > - You can use NaN boxing for better cache locality. Tested only on x86_64.
 >```sh
 >odin run loxi -o:speed -define:NAN_BOXING=true -- eg/fib.lox 
 >```
+> - There are other flags for buildin
 
 ## Build and run
 
@@ -55,4 +58,10 @@ odin run loxi -define:PRINT_CODE=true -define:TRACE_EXECUTION=true -define:LOG_G
 ```sh
 # file
 odin run loxi -define:PRINT_CODE=true -define:TRACE_EXECUTION=true -define:LOG_GC=true -- <filepath>
+```
+
+## WASM
+
+```sh
+ odin build loxi -target:js_wasm32 -no-entry-point 
 ```
