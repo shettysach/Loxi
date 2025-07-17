@@ -7,12 +7,11 @@ async function initWasm() {
   const imports = {
     odin_env: {
       write: () => {},
-      time_now: Date.now
+      time_now: () => BigInt(Date.now()) * 1_000_000n,
     },
 
     dom_interface: {
-      // Odin expects: proc(buffer: [4096]u8) -> int
-      read_input(ptr) {
+      read_in(ptr) {
         const mem = new Uint8Array(instance.exports.memory.buffer);
         const input = document.getElementById("code-input").value;
         const bytes = new TextEncoder().encode(input);
@@ -21,20 +20,32 @@ async function initWasm() {
         return n;
       },
 
-      // Odin expects: proc(out: string) --- (lowered as ptr + len)
-      write_output(ptr, len) {
+      write_out(ptr, len) {
         const mem = new Uint8Array(instance.exports.memory.buffer);
         const text = new TextDecoder().decode(mem.subarray(ptr, ptr + len));
-        document.getElementById("output").textContent += text;
-      }
-    }
+
+        const span = document.createElement("span");
+        span.textContent = text;
+
+        document.getElementById("output").appendChild(span);
+      },
+
+      write_err(ptr, len) {
+        const mem = new Uint8Array(instance.exports.memory.buffer);
+        const text = new TextDecoder().decode(mem.subarray(ptr, ptr + len));
+
+        const errorSpan = document.createElement("span");
+        errorSpan.style.color = "var(--err)";
+        errorSpan.textContent = text;
+
+        document.getElementById("output").appendChild(errorSpan);
+      },
+    },
   };
 
   const { instance: inst } = await WebAssembly.instantiate(wasmBytes, imports);
   instance = inst;
-  instance.exports.setup();
 }
-
 
 window.submitCode = () => {
   document.getElementById("output").textContent = "";

@@ -243,7 +243,7 @@ free_object :: proc(object: ^Obj) {
 print_object :: proc(object: ^Obj) {
 	switch object.type {
 	case .ObjString:
-		write_output((^ObjString)(object).str)
+		write_out((^ObjString)(object).str)
 	case .ObjClosure:
 		function := (^ObjClosure)(object).function
 		print_function(function)
@@ -251,15 +251,15 @@ print_object :: proc(object: ^Obj) {
 		function := cast(^ObjFunction)object
 		print_function(function)
 	case .ObjNative:
-		write_output("<native fn>")
+		write_out("<native fn>")
 	case .ObjUpvalue:
-		write_output("upvalue")
+		write_out("upvalue")
 	case .ObjClass:
 		class := cast(^ObjClass)object
-		write_output(fmt.aprintf("<class %s>", class.name.str))
+		write_out(fmt.aprintf("<class %s>", class.name.str))
 	case .ObjInstance:
 		instance := cast(^ObjInstance)object
-		write_output(fmt.aprintf("<instance %s>", instance.class.name.str))
+		write_out(fmt.aprintf("<instance %s>", instance.class.name.str))
 	case .ObjBoundMethod:
 		bound_method := cast(^ObjBoundMethod)object
 		print_function(bound_method.method.function)
@@ -268,6 +268,6 @@ print_object :: proc(object: ^Obj) {
 
 print_function :: proc(function: ^ObjFunction) {
 	name := function.name
-	if name == nil do write_output("<script>")
-	else do write_output(fmt.aprintf("<fn %s>", name.str))
+	if name == nil do write_out("<script>")
+	else do write_out(fmt.aprintf("<fn %s>", name.str))
 }

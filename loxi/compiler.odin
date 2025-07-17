@@ -92,8 +92,8 @@ init_compiler :: proc(compiler: ^Compiler, type: FunctionType) {
 	compiler.ftype = type
 	compiler.local_count = 0
 	compiler.scope_depth = 0
-
 	current = compiler
+
 	if type != .Script do current.function.name = copy_string(parser.previous.lexeme)
 
 	local := &current.locals[current.local_count]
@@ -870,12 +870,12 @@ error_at :: proc(token: ^Token, msg: string) {
 	if parser.panic_mode {return}
 	parser.panic_mode = true
 
-	write_output(fmt.aprintf("[line %d] Error", token.line))
+	write_err(fmt.aprintf("[line %d] Error", token.line))
 
-	if (token.ttype == .Eof) do write_output(fmt.aprint(" at end"))
-	else if (token.ttype != .Error) do write_output(fmt.aprintf(" at '%s'", token.lexeme))
+	if (token.ttype == .Eof) do write_err(fmt.aprint(" at end"))
+	else if (token.ttype != .Error) do write_err(fmt.aprintf(" at '%s'", token.lexeme))
 
-	write_output(fmt.aprintf(": %s\n", msg))
+	write_err(fmt.aprintf(": %s\n", msg))
 	parser.had_error = true
 }
 

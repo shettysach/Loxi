@@ -1,11 +1,12 @@
 :root {
-   --font: "Geist Mono", monospace;  
+  --mono: "Libertinus Mono", monospace;
+  --err: #e63322;
 }
 
 body {
   background-color: #1e1e1e;
   color: #d4d4d4;
-  font-family: var(--font);
+  font-family: var(--mono);
   display: flex;
   flex-direction: column;
   height: 97.5vh;
@@ -16,14 +17,14 @@ body {
 
 #top-bar {
   display: flex;
-  justify-content: space-between; /* h1 on the left, buttons on the right */
+  justify-content: space-between;
   align-items: center;
   gap: 1rem;
 }
 
 .button-group {
   display: flex;
-  gap: 1rem; /* spacing between buttons */
+  gap: 1rem;
 }
 
 #top-bar h1 {
@@ -51,7 +52,7 @@ body {
 
 textarea {
   background-color: #2d2d2d;
-  font-family: var(--font);
+  font-family: var(--mono);
   color: #d4d4d4;
   border: 1px solid #444;
   padding: 1rem;
@@ -62,7 +63,7 @@ textarea {
 
 button {
   background-color: #007acc;
-  font-family: var(--font);
+  font-family: var(--mono);
   color: white;
   border: none;
   padding: 0.5rem 1rem;

@@ -1,33 +1,39 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Loxi</title>
-  <link rel="stylesheet" type="text/css" href="./styles.css" />
-  <link rel="icon" type="image/x-icon" href="./loki.ico">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Loxi</title>
+    <link rel="stylesheet" type="text/css" href="./styles.css" />
+    <link rel="icon" type="image/x-icon" href="./loki.ico" />
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet">
-</head>
-<body>
-  <div id="top-bar">
-    <h1>LØXI</h1>
-    <div class="button-group">
-      <button onclick="submitCode()">Run</button>
-      <button class="clear" onclick="clearOutput()">Clear</button>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Libertinus+Mono&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="top-bar">
+      <h1>LØXI</h1>
+      <div class="button-group">
+        <button onclick="submitCode()">Run</button>
+        <button class="clear" onclick="clearOutput()">Clear</button>
+      </div>
     </div>
-  </div>
 
-  <div id="main">
-    <div id="left-panel">
-      <textarea id="code-input" placeholder="Type your Lox code here…"></textarea>
+    <div id="main">
+      <div id="left-panel">
+        <textarea
+          id="code-input"
+          placeholder="Type your Lox code here."
+        ></textarea>
+      </div>
+      <div id="right-panel">
+        <div id="output" placeholder="Output appears here."></div>
+      </div>
     </div>
-    <div id="right-panel">
-      <div id="output">Output will appear here</div>
-    </div>
-  </div>
 
-  <script src="script.js" defer></script>
-</body>
+    <script src="script.js" defer></script>
+  </body>
 </html>

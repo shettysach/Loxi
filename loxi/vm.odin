@@ -43,7 +43,7 @@ init_vm :: proc() {
 	vm.strings = make(map[string]^ObjString)
 	vm.init_string = copy_string("init")
 	vm.gray_stack = make([dynamic]^Obj)
-	// define_native("clock", clock_native)
+	define_native("clock", clock_native)
 }
 
 reset_stack :: proc() {
@@ -397,7 +397,7 @@ run :: proc() -> InterpretResult {
 
 		case .Print:
 			print_value(pop())
-			write_output("\n")
+			write_out("\n")
 
 		case .Pop:
 			pop()
@@ -609,8 +609,8 @@ values_equal :: proc(val_a, val_b: Value) -> Value {
 }
 
 runtime_error :: proc(format: string, args: ..any) {
-	if len(args) == 0 do write_output(fmt.aprintfln(format))
-	else do write_output(fmt.aprintfln(format, args))
+	if len(args) == 0 do write_err(fmt.aprintfln(format))
+	else do write_err(fmt.aprintfln(format, args))
 
 	for i := vm.frame_count - 1;; i -= 1 {
 		frame := &vm.frames[i]
@@ -618,7 +618,7 @@ runtime_error :: proc(format: string, args: ..any) {
 		instruction: uint = len(function.chunk.code) - frame.ip - 1
 
 		fname := function.name == nil ? "script" : function.name.str
-		write_output(fmt.aprintfln("[line %d] in %s", function.chunk.lines[instruction], fname))
+		write_err(fmt.aprintfln("[line %d] in %s", function.chunk.lines[instruction], fname))
 
 		if i == 0 do break
 	}
