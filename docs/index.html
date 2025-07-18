@@ -9,26 +9,36 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Libertinus+Mono&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Libertinus+Mono:wght@400&display=swap"
       rel="stylesheet"
     />
   </head>
   <body>
     <div id="top-bar">
       <h1>LØXI</h1>
+      <p>Bytecode interpreter for Lox, written in Odin</p>
+      <a href="https://github.com/shettysach/Loxi">[Source]</a>
+      <a href="https://craftinginterpreters.com/">[Crafting Interpreters]</a>
+      <a href="https://craftinginterpreters.com/the-lox-language.html"
+        >[The Lox language]</a
+      >
       <div class="button-group">
-        <button onclick="submitCode()">Run</button>
+        <button onclick="submitCode()" title="Ctrl+Return">Run</button>
         <button class="clear" onclick="clearOutput()">Clear</button>
       </div>
     </div>
 
     <div id="main">
       <div id="left-panel">
-        <textarea
-          id="code-input"
-          placeholder="Type your Lox code here."
-        ></textarea>
+        <div class="editor-container">
+          <div id="line-numbers"></div>
+          <textarea
+            id="code-input"
+            placeholder="Type your Lox code here."
+          ></textarea>
+        </div>
       </div>
+
       <div id="right-panel">
         <div id="output" placeholder="Output appears here."></div>
       </div>

@@ -297,7 +297,7 @@ run :: proc() -> InterpretResult {
 			a, a_ok := try_number(peek(1))
 
 			if !b_ok || !a_ok {
-				runtime_error("Operand must be a number.")
+				runtime_error("Operands must be numbers.")
 				return .RuntimeError
 			}
 
@@ -310,7 +310,7 @@ run :: proc() -> InterpretResult {
 			a, a_ok := try_number(peek(1))
 
 			if !b_ok || !a_ok {
-				runtime_error("Operand must be a number.")
+				runtime_error("Operands must be numbers.")
 				return .RuntimeError
 			}
 
@@ -476,7 +476,7 @@ call_value :: proc(callee: Value, arg_count: u8) -> bool {
 			args_ptr := mem.ptr_offset(vm.stack_top, -int(arg_count))
 			args_slice := slice.from_ptr(args_ptr, int(arg_count))
 			result := native(args_slice)
-			vm.stack_top = mem.ptr_offset(vm.stack_top, -int(arg_count) + 1)
+			vm.stack_top = mem.ptr_offset(vm.stack_top, -int(arg_count) - 1)
 			push(result)
 			return true
 		}
