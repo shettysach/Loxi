@@ -271,7 +271,7 @@ run :: proc() -> InterpretResult {
 			}
 			subclass := cast(^ObjClass)as_object(peek(0))
 			for name, method in superclass.methods {
-				superclass.methods[name] = method
+				subclass.methods[name] = method
 			}
 			pop()
 
@@ -510,7 +510,7 @@ invoke_from_class :: proc(class: ^ObjClass, name: ^ObjString, arg_count: u8) -> 
 		return call(cast(^ObjClosure)as_object(method), arg_count)
 	}
 
-	runtime_error("Undefined property '%s'.", name)
+	runtime_error("Undefined property '%s'.", name.str)
 	return false
 }
 
@@ -555,7 +555,7 @@ bind_method :: proc(class: ^ObjClass, name: ^ObjString) -> bool {
 	method, ok := class.methods[name]
 
 	if !ok {
-		runtime_error("Undefined property '%s'.", name)
+		runtime_error("Undefined property '%s'.", name.str)
 		return false
 	}
 
@@ -615,7 +615,7 @@ runtime_error :: proc(format: string, args: ..any) {
 	for i := vm.frame_count - 1;; i -= 1 {
 		frame := &vm.frames[i]
 		function := frame.closure.function
-		instruction: uint = len(function.chunk.code) - frame.ip - 1
+		instruction: uint = frame.ip - 1
 
 		fname := function.name == nil ? "script" : function.name.str
 		write_err(fmt.aprintfln("[line %d] in %s", function.chunk.lines[instruction], fname))

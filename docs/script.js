@@ -88,7 +88,7 @@ textarea.addEventListener("keydown", function (e) {
     const end = this.selectionEnd;
 
     this.value =
-      this.value.substring(0, start) + "    " + this.value.substring(end);
+      this.value.substring(0, start) + "  " + this.value.substring(end);
 
     this.selectionStart = this.selectionEnd = start + 4;
   } else if (e.key === "Enter" && e.ctrlKey) {

@@ -30,10 +30,53 @@
       <div id="left-panel">
         <div class="editor-container">
           <div id="line-numbers"></div>
-          <textarea
-            id="code-input"
-            placeholder="Type your Lox code here."
-          ></textarea>
+          <textarea id="code-input" placeholder="Type your Lox code here.">
+class Seq {
+  init(p) {
+    this.prev = p;
+    this.curr = 1;
+  }
+}
+
+class Fib < Seq {
+  init() {
+    super.init(0);
+  }
+
+  next() {
+    var res = this.prev;
+    var nxt = this.prev + this.curr;
+    this.prev = this.curr;
+    this.curr = nxt;
+    return res;
+  }
+}
+
+class Fact < Seq {
+  init() {
+    super.init(1);
+  }
+
+  next() {
+    var res = this.prev;
+    this.prev = this.prev * this.curr;
+    this.curr = this.curr + 1;
+    return res;
+  }
+}
+
+print("Fibonacci");
+var fib = Fib();
+for (var i = 0; i < 10; i = i + 1) {
+  print fib.next();
+}
+
+print("Factorial");
+var fact = Fact();
+for (var i = 0; i < 10; i = i + 1) {
+  print fact.next();
+}</textarea
+          >
         </div>
       </div>
 
