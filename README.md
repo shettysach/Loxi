@@ -63,5 +63,5 @@ odin run loxi -define:PRINT_CODE=true -define:TRACE_EXECUTION=true -define:LOG_G
 ## WASM
 
 ```sh
- odin build loxi -target:js_wasm32 -no-entry-point 
+ odin build loxi -target:js_wasm32 -no-entry-point -o:speed 
 ```
