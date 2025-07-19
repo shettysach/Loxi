@@ -2,7 +2,7 @@
 
 Lox bytecode interpreter with a mark and sweep garbage collector, based on the second half of [Crafting Interpreters by Robert Nystorm](https://craftinginterpreters.com/).
 
-[WASM demo](https://shettysach.github.io/Loxi/)
+You can use the [WASM playground](https://shettysach.github.io/Loxi/) hosted on Github pages.
 
 > [!NOTE]
 > - You can use the Odin compiler's `-o:speed` flag for better performance.
@@ -10,7 +10,6 @@ Lox bytecode interpreter with a mark and sweep garbage collector, based on the s
 >```sh
 >odin run loxi -o:speed -define:NAN_BOXING=true -- eg/fib.lox 
 >```
-> - There are other flags for buildin
 
 ## Build and run
 
@@ -63,5 +62,7 @@ odin run loxi -define:PRINT_CODE=true -define:TRACE_EXECUTION=true -define:LOG_G
 ## WASM
 
 ```sh
- odin build loxi -target:js_wasm32 -no-entry-point -o:speed 
+git switch wasm
+odin build ./loxi -target:js_wasm32 -out:./docs/loxi.wasm -no-entry-point -o:speed
+miniserve ./docs --index ./docs/index.html
 ```
