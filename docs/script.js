@@ -55,10 +55,6 @@ window.submitCode = () => {
   instance.exports.run_file();
 };
 
-window.clearOutput = () => {
-  document.getElementById("output").textContent = "";
-};
-
 const textarea = document.getElementById("code-input");
 const lineNumbers = document.getElementById("line-numbers");
 

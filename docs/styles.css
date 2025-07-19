@@ -34,11 +34,6 @@ body {
   gap: 1rem;
 }
 
-.button-group {
-  display: flex;
-  gap: 1rem;
-}
-
 #top-bar h1 {
   margin: 0;
   font-size: 1.5rem;
