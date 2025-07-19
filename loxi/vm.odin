@@ -271,7 +271,7 @@ run :: proc() -> InterpretResult {
 			}
 			subclass := cast(^ObjClass)as_object(peek(0))
 			for name, method in superclass.methods {
-				superclass.methods[name] = method
+				subclass.methods[name] = method
 			}
 			pop()
 
@@ -509,7 +509,7 @@ invoke_from_class :: proc(class: ^ObjClass, name: ^ObjString, arg_count: u8) -> 
 		return call(cast(^ObjClosure)as_object(method), arg_count)
 	}
 
-	runtime_error("Undefined property '%s'.", name)
+	runtime_error("Undefined property '%s'.", name.str)
 	return false
 }
 
@@ -554,7 +554,7 @@ bind_method :: proc(class: ^ObjClass, name: ^ObjString) -> bool {
 	method, ok := class.methods[name]
 
 	if !ok {
-		runtime_error("Undefined property '%s'.", name)
+		runtime_error("Undefined property '%s'.", name.str)
 		return false
 	}
 

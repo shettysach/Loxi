@@ -1,0 +1,48 @@
+class SequenceGenerator {
+  init() {
+    this.prev = 0;
+    this.curr = 1;
+  }
+
+  next() {
+    return nil;
+  }
+
+  reset() {
+    this.prev = 0;
+    this.curr = 1;
+  }
+}
+
+class Fibonacci < SequenceGenerator {
+  next() {
+    var result = this.prev;
+    var nextVal = this.prev + this.curr;
+    this.prev = this.curr;
+    this.curr = nextVal;
+    return result;
+  }
+}
+
+class Factorial < SequenceGenerator {
+  next() {
+    if (this.prev == 0) {
+      this.prev = 1;
+      this.curr = 1;
+      return 1;
+    }
+    this.curr = this.curr * this.prev;
+    this.prev = this.prev + 1;
+    return this.curr;
+  }
+}
+
+var fib = Fibonacci();
+print fib.next();
+print fib.next();
+print fib.next();
+
+var fact = Factorial();
+print fact.next();
+print fact.next();
+print fact.next();
