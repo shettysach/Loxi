@@ -7,7 +7,7 @@ import "base:runtime"
 foreign import "dom_interface"
 
 foreign dom_interface {
-	read_in :: proc "contextless" (buffer: [1024]u8) -> int ---
+	read_in :: proc "contextless" (buffer: [4096]u8) -> int ---
 	write_out :: proc "contextless" (out: string) ---
 	write_err :: proc "contextless" (out: string) ---
 }
@@ -19,7 +19,7 @@ run_file :: proc() {
 	init_vm()
 	defer free_vm()
 
-	buffer: [1024]u8
+	buffer: [4096]u8
 	n := read_in(buffer)
 
 	source := buffer[:n]

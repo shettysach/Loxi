@@ -7,14 +7,14 @@ async function init() {
   const imports = {
     odin_env: {
       write: () => {},
-      time_now: () => BigInt(Date.now()) * 1_0n,
+      time_now: () => BigInt(Date.now()) * 1_000_000n,
     },
     dom_interface: {
       read_in(ptr) {
         const mem = new Uint8Array(instance.exports.memory.buffer);
         const bytes = new TextEncoder().encode(currentInput);
-        mem.set(bytes.subarray(0, 1024), ptr);
-        return Math.min(bytes.length, 1024);
+        mem.set(bytes.subarray(0, 4096), ptr);
+        return Math.min(bytes.length, 4096);
       },
       write_out(ptr, len) {
         const mem = new Uint8Array(instance.exports.memory.buffer);
@@ -37,6 +37,7 @@ let currentInput = "";
 
 onmessage = async ({ data }) => {
   if (!instance) await init();
-  currentInput = data.code;
+  currentInput = String(data.code);
+  console.log("Input code:", currentInput);
   instance.exports.run_file();
 };
