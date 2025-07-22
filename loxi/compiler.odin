@@ -92,8 +92,8 @@ init_compiler :: proc(compiler: ^Compiler, type: FunctionType) {
 	compiler.ftype = type
 	compiler.local_count = 0
 	compiler.scope_depth = 0
-	current = compiler
 
+	current = compiler
 	if type != .Script do current.function.name = copy_string(parser.previous.lexeme)
 
 	local := &current.locals[current.local_count]

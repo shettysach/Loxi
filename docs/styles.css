@@ -57,6 +57,7 @@ body {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
+  max-width: 100%;
 }
 
 textarea::placeholder,
@@ -111,6 +112,11 @@ button.clear:hover {
 #output {
   color: var(--text);
   flex: 1;
+}
+
+#output {
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 a,
