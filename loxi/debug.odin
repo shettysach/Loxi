@@ -97,6 +97,12 @@ disassemble_instruction :: proc(chunk: ^Chunk, offset: uint) -> uint {
 		return simple_instruction("PRINT", offset)
 	case .Pop:
 		return simple_instruction("POP", offset)
+	case .BuildList:
+		return byte_instruction("BUILD_LIST", chunk, offset) // WARN:
+	case .IndexSubscr:
+		return simple_instruction("INDEX_SUBSCR", offset) // WARN:
+	case .StoreSubscr:
+		return simple_instruction("STORE_SUBSCR", offset) // WARN:
 	case .Closure:
 		offset += 1
 		constant := chunk.code[offset];offset += 1

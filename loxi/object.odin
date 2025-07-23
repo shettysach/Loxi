@@ -12,6 +12,7 @@ ObjType :: enum {
 	ObjClass,
 	ObjInstance,
 	ObjBoundMethod,
+	ObjList,
 }
 
 Obj :: struct {
@@ -72,6 +73,11 @@ ObjBoundMethod :: struct {
 	method:    ^ObjClosure,
 }
 
+ObjList :: struct {
+	using obj: Obj,
+	items:     [dynamic]Value,
+}
+
 allocate_object :: proc($T: typeid, type: ObjType) -> ^T {
 	when DEBUG_STRESS_GC {
 		collect_garbage()
@@ -104,9 +110,9 @@ allocate_string :: proc(str: string) -> ^ObjString {
 		size_of(str[0]) * len(str),
 	)
 
-	push(object_val(obj_string))
+	push_vm(object_val(obj_string))
 	vm.strings[str] = obj_string
-	pop()
+	pop_vm()
 
 	return obj_string
 }
@@ -178,6 +184,12 @@ new_bound_method :: proc(reciever: Value, method: ^ObjClosure) -> ^ObjBoundMetho
 	return bound
 }
 
+new_list :: proc(len: u8) -> ^ObjList {
+	list := allocate_object(ObjList, .ObjList)
+	list.items = make([dynamic]Value, len)
+	return list
+}
+
 free_object :: proc(object: ^Obj) {
 	when DEBUG_LOG_GC do fmt.printfln("%p free type %v", object, object.type)
 
@@ -194,7 +206,7 @@ free_object :: proc(object: ^Obj) {
 	case .ObjClosure:
 		obj := cast(^ObjClosure)object
 
-		vm.bytes_allocated -= size_of(obj.upvalues)
+		vm.bytes_allocated -= len(obj.upvalues) * size_of(ObjUpvalue)
 		delete(obj.upvalues)
 
 		vm.bytes_allocated -= size_of(ObjClosure)
@@ -219,7 +231,7 @@ free_object :: proc(object: ^Obj) {
 
 	case .ObjClass:
 		obj := cast(^ObjClass)object
-		vm.bytes_allocated -= size_of(obj.methods)
+		vm.bytes_allocated -= len(obj.methods) * size_of(Value)
 		delete(obj.methods)
 
 		vm.bytes_allocated -= size_of(ObjClass)
@@ -227,7 +239,7 @@ free_object :: proc(object: ^Obj) {
 
 	case .ObjInstance:
 		obj := cast(^ObjInstance)object
-		vm.bytes_allocated -= size_of(obj.fields)
+		vm.bytes_allocated -= len(obj.fields) * size_of(Value)
 		delete(obj.fields)
 
 		vm.bytes_allocated -= size_of(ObjInstance)
@@ -235,6 +247,14 @@ free_object :: proc(object: ^Obj) {
 
 	case .ObjBoundMethod:
 		obj := cast(^ObjBoundMethod)object
+		vm.bytes_allocated -= size_of(ObjBoundMethod)
+		free(obj)
+
+	case .ObjList:
+		obj := cast(^ObjList)object
+		vm.bytes_allocated -= len(obj.items) * size_of(Value)
+		delete(obj.items)
+
 		vm.bytes_allocated -= size_of(ObjBoundMethod)
 		free(obj)
 	}
@@ -263,6 +283,9 @@ print_object :: proc(object: ^Obj) {
 	case .ObjBoundMethod:
 		bound_method := cast(^ObjBoundMethod)object
 		print_function(bound_method.method.function)
+	case .ObjList:
+		list := cast(^ObjList)object
+		print_list(list)
 	}
 }
 
@@ -270,4 +293,17 @@ print_function :: proc(function: ^ObjFunction) {
 	name := function.name
 	if name == nil do fmt.print("<script>")
 	else do fmt.printf("<fn %s>", name.str)
+}
+
+print_list :: proc(list: ^ObjList) {
+	fmt.print("[")
+	last := len(list.items) - 1
+
+	for item in list.items[:last] {
+		print_value(item)
+		fmt.print(", ")
+	}
+
+	print_value(list.items[last])
+	fmt.print("]")
 }

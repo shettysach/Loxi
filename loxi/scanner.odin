@@ -30,6 +30,8 @@ TokenType :: enum {
 	RightParen,
 	LeftBrace,
 	RightBrace,
+	LeftBracket,
+	RightBracket,
 	Comma,
 	Dot,
 	Minus,
@@ -162,6 +164,10 @@ scan_token :: proc() -> Token {
 		return make_token(.Star)
 	case '/':
 		return make_token(.Slash)
+	case '[':
+		return make_token(.LeftBracket)
+	case ']':
+		return make_token(.RightBracket)
 	case '!':
 		if match('=') {return make_token(.BangEqual)} else {return make_token(.Bang)}
 	case '=':
