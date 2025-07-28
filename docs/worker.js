@@ -38,6 +38,5 @@ let currentInput = "";
 onmessage = async ({ data }) => {
   if (!instance) await init();
   currentInput = String(data.code);
-  console.log("Input code:", currentInput);
   instance.exports.run_file();
 };

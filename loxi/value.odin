@@ -74,7 +74,14 @@ try_object :: proc(value: Value) -> (^Obj, bool) {
 }
 
 print_value :: proc(value: Value) {
-	if object, ok := try_object(value); ok do print_object(object)
-	else if value == NIL do write_out("nil")
-	else do write_out(fmt.aprint(value))
+	when NAN_BOXING {
+		if number, ok := try_number(value); ok do write_out(fmt.aprint(number))
+		else if bool, ok := try_bool(value); ok do write_out(fmt.aprint(bool))
+		else if object, ok := try_object(value); ok do print_object(object)
+		else if value == NIL do write_out("nil")
+	} else {
+		if object, ok := value.(^Obj); ok do print_object(object)
+		else if _, ok := value.(Nil); ok do write_out(fmt.aprint("nil"))
+		else do write_out(fmt.aprint(value))
+	}
 }

@@ -706,13 +706,13 @@ clock_native :: proc(args: []Value) -> Value {
 
 list_native :: proc(args: []Value) -> Value {
 	if len(args) != 2 {
-		fmt.println("`list` takes 2 arguments.")
+		write_err("`list` takes 2 arguments.")
 		return NIL
 	}
 
 	number, num_ok := try_number(args[1])
 	if !num_ok || math.trunc(number) != number || 0 > number || uint(number) > 255 {
-		fmt.eprintln(
+		write_err(
 			"[error at `delete`] - 2nd argument index should be a whole number within range.",
 		)
 		return NIL
@@ -729,13 +729,13 @@ list_native :: proc(args: []Value) -> Value {
 
 length_native :: proc(args: []Value) -> Value {
 	if len(args) != 1 {
-		fmt.println("`length` takes 1 argument.")
+		write_err("`length` takes 1 argument.")
 		return NIL
 	}
 
 	obj, ok := try_object(args[0])
 	if !ok {
-		fmt.println("1st argument is not a list or string.")
+		write_err("1st argument is not a list or string.")
 		return NIL
 	}
 
@@ -746,20 +746,20 @@ length_native :: proc(args: []Value) -> Value {
 		string := cast(^ObjString)obj
 		return number_val(f64(len(string.str)))
 	} else {
-		fmt.println("1st argument is not a list or string.")
+		write_err("1st argument is not a list or string.")
 		return NIL
 	}
 }
 
 push_native :: proc(args: []Value) -> Value {
 	if len(args) != 2 {
-		fmt.eprintln("`push` takes 2 arguments.")
+		write_err("`push` takes 2 arguments.")
 		return NIL
 	}
 
 	obj, ok := try_object(args[0])
 	if !ok || obj.type != .ObjList {
-		fmt.eprintln("[error at `push`] - 1st argument is not a list.")
+		write_err("[error at `push`] - 1st argument is not a list.")
 		return NIL
 	}
 
@@ -771,13 +771,13 @@ push_native :: proc(args: []Value) -> Value {
 
 pop_native :: proc(args: []Value) -> Value {
 	if len(args) != 1 {
-		fmt.println("`pop` takes 1 arguments.")
+		write_err("`pop` takes 1 arguments.")
 		return NIL
 	}
 
 	obj, ok := try_object(args[0])
 	if !ok || obj.type != .ObjList {
-		fmt.eprintln("[error at `pop`] - argument is not a list.")
+		write_err("[error at `pop`] - argument is not a list.")
 		return NIL
 	}
 
@@ -785,7 +785,7 @@ pop_native :: proc(args: []Value) -> Value {
 	value, p_ok := pop_safe(&list.items)
 
 	if !p_ok {
-		fmt.eprintln("[error at `pop`] - cannot pop empty list.")
+		write_err("[error at `pop`] - cannot pop empty list.")
 		return NIL
 	}
 
@@ -800,7 +800,7 @@ insert_native :: proc(args: []Value) -> Value {
 
 	obj, ok := try_object(args[0])
 	if !ok || obj.type != .ObjList {
-		fmt.eprintln("[error at `insert`] - 1st argument is not a list.")
+		write_err("[error at `insert`] - 1st argument is not a list.")
 		return NIL
 	}
 
@@ -826,7 +826,7 @@ delete_native :: proc(args: []Value) -> Value {
 
 	obj, ok := try_object(args[0])
 	if !ok || obj.type != .ObjList {
-		fmt.eprintln("[error at `delete`] - 1st argument is not a list.")
+		write_err("[error at `delete`] - 1st argument is not a list.")
 		return NIL
 	}
 
