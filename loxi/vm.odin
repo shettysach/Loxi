@@ -432,10 +432,7 @@ run :: proc() -> InterpretResult {
 			len := len(list.items)
 
 			number, num_ok := try_number(index)
-			if !num_ok ||
-			   math.trunc(number) != number ||
-			   -len > int(number) ||
-			   int(number) > len {
+			if !num_ok || math.trunc(number) != number || -len > int(number) || int(number) > len {
 				runtime_error("List index should be an integer from %d to %d.", -len, len - 1)
 				return .RuntimeError
 			}
@@ -459,10 +456,7 @@ run :: proc() -> InterpretResult {
 			len := len(list.items)
 
 			number, num_ok := try_number(index)
-			if !num_ok ||
-			   math.trunc(number) != number ||
-			   -len > int(number) ||
-			   int(number) > len {
+			if !num_ok || math.trunc(number) != number || -len > int(number) || int(number) > len {
 				runtime_error("List index should be an integer from %d to %d.", -len, len - 1)
 				return .RuntimeError
 			}
@@ -710,7 +704,7 @@ clock_native :: proc(args: []Value) -> Value {
 
 list_native :: proc(args: []Value) -> Value {
 	if len(args) != 2 {
-		fmt.println("`list` takes 2 arguments.")
+		fmt.eprintln("`list` takes 2 arguments.")
 		return NIL
 	}
 
@@ -733,13 +727,13 @@ list_native :: proc(args: []Value) -> Value {
 
 length_native :: proc(args: []Value) -> Value {
 	if len(args) != 1 {
-		fmt.println("`length` takes 1 argument.")
+		fmt.eprintln("`length` takes 1 argument.")
 		return NIL
 	}
 
 	obj, ok := try_object(args[0])
 	if !ok {
-		fmt.println("1st argument is not a list or string.")
+		fmt.eprintln("1st argument is not a list or string.")
 		return NIL
 	}
 
@@ -750,7 +744,7 @@ length_native :: proc(args: []Value) -> Value {
 		string := cast(^ObjString)obj
 		return number_val(f64(len(string.str)))
 	} else {
-		fmt.println("1st argument is not a list or string.")
+		fmt.eprintln("1st argument is not a list or string.")
 		return NIL
 	}
 }
@@ -775,7 +769,7 @@ push_native :: proc(args: []Value) -> Value {
 
 pop_native :: proc(args: []Value) -> Value {
 	if len(args) != 1 {
-		fmt.println("`pop` takes 1 arguments.")
+		fmt.eprintln("`pop` takes 1 arguments.")
 		return NIL
 	}
 
@@ -798,7 +792,7 @@ pop_native :: proc(args: []Value) -> Value {
 
 insert_native :: proc(args: []Value) -> Value {
 	if len(args) != 3 {
-		error_at_previous("`insert` takes 3 arguments.")
+		fmt.eprintln("`insert` takes 3 arguments.")
 		return NIL
 	}
 
@@ -813,7 +807,7 @@ insert_native :: proc(args: []Value) -> Value {
 
 	number, num_ok := try_number(args[1])
 	if !num_ok || math.trunc(number) != number || -len > int(number) || int(number) > len {
-		runtime_error("List index should be an integer from %d to %d.", -len, len - 1)
+		fmt.eprintln("List index should be an integer from %d to %d.", -len, len - 1)
 		return NIL
 	}
 
@@ -824,7 +818,7 @@ insert_native :: proc(args: []Value) -> Value {
 
 delete_native :: proc(args: []Value) -> Value {
 	if len(args) != 2 {
-		error_at_previous("`delete` takes 2 arguments.")
+		fmt.eprintln("`delete` takes 2 arguments.")
 		return NIL
 	}
 
@@ -839,7 +833,7 @@ delete_native :: proc(args: []Value) -> Value {
 
 	number, num_ok := try_number(args[1])
 	if !num_ok || math.trunc(number) != number || -len > int(number) || int(number) > len {
-		runtime_error("List index should be an integer from %d to %d.", -len, len - 1)
+		fmt.eprintln("List index should be an integer from %d to %d.", -len, len - 1)
 		return NIL
 	}
 

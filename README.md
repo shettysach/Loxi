@@ -1,10 +1,10 @@
 # Loxi
 
-Lox bytecode interpreter with a mark and sweep garbage collector, based on the second half of [Crafting Interpreters by Robert Nystorm](https://craftinginterpreters.com/).
+Bytecode interpreter for [the Lox language](https://craftinginterpreters.com/the-lox-language.html) with a mark and sweep garbage collector, based on the second half of [Crafting Interpreters by Robert Nystorm](https://craftinginterpreters.com/).
 
-## Additions
+## Lists
 
-- Supports lists and has more native functions. Credits to [Caleb Schoepp's blog](https://calebschoepp.com/blog/2020/adding-a-list-data-type-to-lox/). 
+Also supports lists and has additional native functions. Credits to [Caleb Schoepp's blog](https://calebschoepp.com/blog/2020/adding-a-list-data-type-to-lox/). 
 
 ```c
 var l = [1, 2, 3, 4, 5];
@@ -48,7 +48,6 @@ x[3] = "world";
 print x; // [0, hello, <fn reverse>, world, 0]
 x[2](x); // [0, world, <fn reverse>, hello, 0]
 print x;
-
 ```
 
 ```c
