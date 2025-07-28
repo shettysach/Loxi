@@ -1,0 +1,47 @@
+var l = [1, 2, 3, 4, 5];
+print "List";
+print l; // [1, 2, 3, 4, 5]
+
+print "Append";
+append(l, 6);
+print l; // [1, 2, 3, 4, 5, 6];
+
+print "Insert";
+insert(l, 0, -1);
+print l; // [-1, 1, 2, 3, 4, 5, 6];
+
+print "Pop";
+print pop(l); // 6
+
+print "Delete";
+delete(l, 0);
+print l; // [1, 2, 3, 4, 5];
+
+fun reverse(l) {
+    var n = len(l); // also works on strings
+
+    for (var i = 0; i < n / 2; i = i + 1) {
+        var tmp = l[i];
+        l[i] = l[n - 1 - i];
+        l[n - 1 - i] = tmp;
+    }
+}
+
+print "Reversed";
+reverse(l);
+print l; // [4, 4, 3, 2, 1];
+
+var x = list(0, 5); 
+print x; // [0, 0, 0, 0, 0]
+x[1] = "hello";
+x[2] = reverse;
+x[3] = "world";
+print x;
+x[2](x);
+print x;
+
+var fib = [0, 1]; 
+for (var i=0; i<15; i=i+1) append(fib, fib[-1] + fib[-2]);
+
+print "Fibonacci numbers";
+print fib;
