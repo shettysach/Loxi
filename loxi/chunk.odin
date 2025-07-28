@@ -38,6 +38,9 @@ OpCode :: enum u8 {
 	Divide,
 	Print,
 	Pop,
+	BuildList,
+	IndexSubscr,
+	StoreSubscr,
 }
 
 Chunk :: struct {
@@ -66,9 +69,9 @@ write_chunk :: proc(c: ^Chunk, byte: u8, line: uint) {
 }
 
 add_constant :: proc(c: ^Chunk, value: Value) -> uint {
-	push(value)
+	push_vm(value)
 	len: uint = len(c.constants)
 	append_elem(&c.constants, value)
-	pop()
+	pop_vm()
 	return len
 }

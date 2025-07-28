@@ -112,6 +112,9 @@ blacken_object :: proc(object: ^Obj) {
 		bound := cast(^ObjBoundMethod)object
 		mark_value(bound.reciever)
 		mark_object(bound.method)
+	case .ObjList:
+		list := cast(^ObjList)object
+		for item in list.items do mark_value(item)
 	}
 }
 

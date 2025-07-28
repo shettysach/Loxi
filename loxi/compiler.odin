@@ -32,6 +32,7 @@ Precedence :: enum {
 	Unary,
 	Call,
 	Primary,
+	Subscript,
 }
 
 Compiler :: struct {
@@ -421,6 +422,45 @@ string_parse :: proc(can_assign: bool) {
 	emit_constant(object_val(object))
 }
 
+list :: proc(can_assign: bool) {
+	item_count: u8 = 0
+
+	if !check(.RightBracket) {
+		parse_precedence(.Or)
+		item_count += 1
+
+		for match(.Comma) {
+			if check(.RightBracket) do break
+			parse_precedence(.Or)
+
+			if (item_count == 255) do error_at_previous("Cannot have more than 256 items in a list literal.")
+			item_count += 1
+		}
+	}
+
+	consume(.RightBracket, "Expect ']' after list literal.")
+
+	emit_code(.BuildList)
+	emit_byte(item_count)
+	return
+
+}
+
+subscript :: proc(can_assign: bool) {
+	parse_precedence(.Or)
+	consume(.RightBracket, "Expect ']' after list index.")
+
+	if can_assign && match(.Equal) {
+		expression()
+		emit_code(.StoreSubscr)
+	} else {
+		emit_code(.IndexSubscr)
+	}
+
+	return
+}
+
+
 named_variable :: proc(name: string, can_assign: bool) {
 	get_op: u8 = 0
 	set_op: u8 = 0
@@ -612,6 +652,8 @@ rules := []ParseRule {
 	TokenType.RightParen   = ParseRule{nil, nil, .None},
 	TokenType.LeftBrace    = ParseRule{nil, nil, .None},
 	TokenType.RightBrace   = ParseRule{nil, nil, .None},
+	TokenType.LeftBracket  = ParseRule{list, subscript, .Subscript},
+	TokenType.RightBracket = ParseRule{nil, nil, .None},
 	TokenType.Comma        = ParseRule{nil, nil, .None},
 	TokenType.Dot          = ParseRule{nil, dot, .Call},
 	TokenType.Minus        = ParseRule{unary, binary, .Term},
