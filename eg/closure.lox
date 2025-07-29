@@ -18,17 +18,18 @@ counter();
 counter();
 counter();
 
-{
-    var m = 0;
 
-    fun inc() {
-        m = m + 1;
-    }
+var m = 0;
 
-    inc();
-    inc();
-    inc();
-
-    print inc;
-    print m;
+fun inc() {
+    m = m + 1;
 }
+
+inc();
+inc();
+inc();
+inc();
+inc();
+
+print inc;
+print m;

@@ -1,6 +1,7 @@
 package loxi
 
 import "core:fmt"
+import "core:math"
 
 NAN_BOXING :: #config(NAN_BOXING, false)
 

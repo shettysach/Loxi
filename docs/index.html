@@ -23,59 +23,20 @@
       </p>
       <a href="https://github.com/shettysach/Loxi">[Source]</a>
       <a href="https://craftinginterpreters.com/">[Crafting Interpreters]</a>
-      <button onclick="submitCode()" title="Ctrl+Return">▶ Run</button>
+      <select id="example-dropdown" title="Select an example">
+        <option value="" disabled selected>Select an example</option>
+      </select>
+      <button onclick="submitCode()" title="Ctrl+Enter">▶ Run</button>
     </div>
 
     <div id="main">
       <div id="left-panel">
         <div class="editor-container">
           <div id="line-numbers"></div>
-          <textarea id="code-input" placeholder="Type your Lox code here.">
-class Seq {
-  init(p) {
-    this.prev = p;
-    this.curr = 1;
-  }
-}
-
-class Fib &lt; Seq {
-  init() {
-    super.init(0);
-  }
-
-  next() {
-    var res = this.prev;
-    this.prev = this.curr;
-    this.curr = this.curr + res;
-    return res;
-  }
-}
-
-class Fact &lt; Seq {
-  init() {
-    super.init(1);
-  }
-
-  next() {
-    var res = this.prev;
-    this.prev = this.prev * this.curr;
-    this.curr = this.curr + 1;
-    return res;
-  }
-}
-
-print("Fibonacci");
-var fib = Fib();
-for (var i = 0; i &lt; 10; i = i + 1) {
-  print fib.next();
-}
-
-print("Factorial");
-var fact = Fact();
-for (var i = 0; i &lt; 10; i = i + 1) {
-  print fact.next();
-}</textarea
-          >
+          <textarea
+            id="code-input"
+            placeholder="Type your Lox code here."
+          ></textarea>
         </div>
       </div>
 

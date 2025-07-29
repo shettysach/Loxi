@@ -1,18 +1,16 @@
 :root {
-  --mono: "Libertinus Mono", monospace;
-  --text: #ffffff;
-  --place: #777777;
+  --mono: "Libertinus Mono", monospace; /* Keeping the original font */
+  --text: #eeeeee; /* Soft light gray for readability */
+  --place: #6c6c6c; /* Muted gray for placeholders */
 
-  --run: #007acc;
-  --ruh: #005f99;
+  --run: #d16a4a; /* Darker, muted orange */
+  --ruh: #e07b5a; /* Slightly lighter orange for hover states */
 
-  --err: #cc4444;
-  --erh: #992222;
+  --err: #ff5370; /* Vibrant pinkish-red for errors */
 
-  --bg: #000000;
-
-  --border: #57b9ff;
-  --area: #1e1e1e;
+  --bg: #121212; /* Cooler black for a sleek, modern feel */
+  --border: #ffcb6b; /* Warm yellow for borders */
+  --area: #1a1a1a; /* Slightly lighter black for contrast */
 }
 
 body {
@@ -79,14 +77,6 @@ button:hover {
   background-color: var(--ruh);
 }
 
-button.clear {
-  background-color: var(--err);
-}
-
-button.clear:hover {
-  background-color: var(--erh);
-}
-
 .editor-container {
   display: flex;
   width: 100%;
@@ -128,9 +118,35 @@ a,
 }
 
 a:hover {
-  color: var(--run);
+  color: var(--ruh);
 }
 
 textarea:focus {
   outline: none;
+}
+
+/* Dropdown styling */
+#example-dropdown {
+  background-color: var(--area);
+  color: var(--text);
+  font-family: var(--mono);
+  border: 1px solid var(--border);
+  padding: 0.5rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+#example-dropdown:hover {
+  border-color: var(--ruh); /* Slightly lighter border on hover */
+}
+
+#example-dropdown:focus {
+  outline: none;
+  border-color: var(--ruh); /* Highlight border when focused */
+}
+
+#example-dropdown option {
+  background-color: var(--area);
+  color: var(--text);
+  font-family: var(--mono);
 }
