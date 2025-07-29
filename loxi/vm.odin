@@ -59,6 +59,10 @@ free_vm :: proc() {
 	delete(vm.strings)
 	delete(vm.gray_stack)
 	free_objects()
+	vm.stack_top = nil
+	vm.open_upvalues = nil
+	vm.init_string = nil
+	vm.objects = nil
 }
 
 free_objects :: proc() {
@@ -296,7 +300,7 @@ run :: proc() -> InterpretResult {
 			a, a_ok := try_number(peek_vm(1))
 
 			if !b_ok || !a_ok {
-				runtime_error("Operands must be a numbers.")
+				runtime_error("Operands must be numbers.")
 				return .RuntimeError
 			}
 

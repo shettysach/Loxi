@@ -2,6 +2,8 @@
 
 Bytecode interpreter for [the Lox language](https://craftinginterpreters.com/the-lox-language.html) with a mark and sweep garbage collector, based on the second half of [Crafting Interpreters by Robert Nystorm](https://craftinginterpreters.com/).
 
+You can use the [WASM playground](https://shettysach.github.io/Loxi/) hosted on GitHub Pages. 
+
 ## Lists
 
 Also supports lists and has additional native functions. Credits to [Caleb Schoepp's blog](https://calebschoepp.com/blog/2020/adding-a-list-data-type-to-lox/). 
@@ -58,7 +60,6 @@ print "Fibonacci numbers";
 print fib; // [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987]
 ```
 
-You can use the [WASM playground](https://shettysach.github.io/Loxi/) hosted on Github pages. (Currently does not support lists)
 
 > [!NOTE]
 > - You can use the Odin compiler's `-o:speed` flag for better performance.
