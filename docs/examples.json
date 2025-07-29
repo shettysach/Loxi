@@ -7,7 +7,7 @@
 
   "Closures": "fun makeCounter() {\n  var i = 0;\n  fun count() {\n    i = i + 1;\n    print i;\n  }\n\n  return count;\n}\n\nprint makeCounter;\n\nvar counter = 0;\ncounter = makeCounter();\nprint counter;\n\ncounter();\ncounter();\ncounter();\n\n\nvar m = 0;\n\nfun inc() {\n    m = m + 1;\n}\n\ninc();\ninc();\ninc();\ninc();\ninc();\n\nprint inc;\nprint m;",
 
-  "Leibnitz": "fun item(n) {\n\tvar denominator = 2*n+1;\n\tvar sign = 1;\n\tfor (var i = 0; i < n; i = i+1) {\n\t\tsign = sign * -1;\n\t}\n\treturn sign / denominator;\n}\n\nfun leibniz(k) {\n\tvar quarter = 0;\n\tfor (var i = 0; i < k; i = i+1) {\n\t\tquarter = quarter + item(i);\n\t}\n\n\treturn 4*quarter;\n}\n\nprint leibniz(200);",
+  "Leibniz π": "fun item(n) {\n\tvar denominator = 2*n+1;\n\tvar sign = 1;\n\tfor (var i = 0; i < n; i = i+1) {\n\t\tsign = sign * -1;\n\t}\n\treturn sign / denominator;\n}\n\nfun leibniz(k) {\n\tvar quarter = 0;\n\tfor (var i = 0; i < k; i = i+1) {\n\t\tquarter = quarter + item(i);\n\t}\n\n\treturn 4*quarter;\n}\n\nprint leibniz(1000);",
 
   "Maybe monad": "class Just {\n  init(value) { this.value = value; }\n\n  bind(fn) { return fn(this.value); }\n\n  toString() { return this.value; }\n}\n\nclass Nothing {\n  bind(fn) { return this; }\n\n  toString() { return \"Nothing\"; }\n}\n\nfun maybe(value) {\n  if (value == nil) return Nothing();\n  return Just(value);\n}\n\nfun reciprocal(x) {\n  if (x == 0) return Nothing();\n  return maybe(1 / x);\n}\n\nfun increment(x) { return maybe(x + 1); }\n\nvar a = maybe(4)\n    .bind(reciprocal)\n    .bind(increment);\n\nprint a.toString();\n\nvar b = maybe(0)\n    .bind(reciprocal)\n    .bind(increment);\n\nprint b.toString();",
 
