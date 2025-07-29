@@ -435,13 +435,12 @@ run :: proc() -> InterpretResult {
 			list := cast(^ObjList)obj
 			len := len(list.items)
 
-			number, num_ok := try_number(index)
-			if !num_ok || math.trunc(number) != number || -len > int(number) || int(number) > len {
+			index_u8, index_ok := try_index(index, len)
+			if !index_ok {
 				runtime_error("List index should be an integer from %d to %d.", -len, len - 1)
 				return .RuntimeError
 			}
 
-			index_u8 := u8(number) if number >= 0 else u8(len + int(number))
 			result := list.items[index_u8]
 			push_vm(result)
 
@@ -459,13 +458,12 @@ run :: proc() -> InterpretResult {
 			list := cast(^ObjList)obj
 			len := len(list.items)
 
-			number, num_ok := try_number(index)
-			if !num_ok || math.trunc(number) != number || -len > int(number) || int(number) > len {
+			index_u8, index_ok := try_index(index, len)
+			if !index_ok {
 				runtime_error("List index should be an integer from %d to %d.", -len, len - 1)
 				return .RuntimeError
 			}
 
-			index_u8 := u8(number) if number >= 0 else u8(len + int(number))
 			list.items[index_u8] = item
 			push_vm(item)
 		}
@@ -809,13 +807,12 @@ insert_native :: proc(args: []Value) -> Value {
 	list := cast(^ObjList)obj
 	len: int = len(list.items)
 
-	number, num_ok := try_number(args[1])
-	if !num_ok || math.trunc(number) != number || -len > int(number) || int(number) > len {
+	index_u8, index_ok := try_index(args[1], len)
+	if !index_ok {
 		fmt.eprintln("List index should be an integer from %d to %d.", -len, len - 1)
 		return NIL
 	}
 
-	index_u8 := u8(number) if number >= 0 else u8(len + int(number))
 	inject_at(&list.items, index_u8, args[2])
 	return NIL
 }
@@ -835,13 +832,11 @@ delete_native :: proc(args: []Value) -> Value {
 	list := cast(^ObjList)obj
 	len: int = len(list.items)
 
-	number, num_ok := try_number(args[1])
-	if !num_ok || math.trunc(number) != number || -len > int(number) || int(number) > len {
+	index_u8, index_ok := try_index(args[1], len)
+	if !index_ok {
 		fmt.eprintln("List index should be an integer from %d to %d.", -len, len - 1)
 		return NIL
 	}
-
-	index_u8 := u8(number) if number >= 0 else u8(len + int(number))
 
 	ordered_remove(&list.items, index_u8)
 	return NIL

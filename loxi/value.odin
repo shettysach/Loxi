@@ -1,6 +1,7 @@
 package loxi
 
 import "core:fmt"
+import "core:math"
 
 NAN_BOXING :: #config(NAN_BOXING, false)
 
@@ -71,6 +72,17 @@ try_object :: proc(value: Value) -> (^Obj, bool) {
 	} else {
 		return value.(^Obj)
 	}
+}
+
+
+try_index :: proc(value: Value, len: int) -> (u8, bool) {
+	number, num_ok := try_number(value)
+	if !num_ok || math.trunc(number) != number || -len > int(number) || int(number) >= len {
+		return 0, false
+	}
+
+	index := u8(number) if number >= 0 else u8(len + int(number))
+	return index, true
 }
 
 print_value :: proc(value: Value) {
