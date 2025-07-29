@@ -81,7 +81,7 @@ print_value :: proc(value: Value) {
 		else if value == NIL do write_out("nil")
 	} else {
 		if object, ok := value.(^Obj); ok do print_object(object)
-		else if _, ok := value.(Nil); ok do write_out(fmt.aprint("nil"))
+		else if _, ok := value.(Nil); ok do write_out("nil")
 		else do write_out(fmt.aprint(value))
 	}
 }

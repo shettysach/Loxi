@@ -296,14 +296,14 @@ print_function :: proc(function: ^ObjFunction) {
 }
 
 print_list :: proc(list: ^ObjList) {
-	fmt.print("[")
+	write_out("[")
 	last := len(list.items) - 1
 
 	for item in list.items[:last] {
 		print_value(item)
-		fmt.print(", ")
+		write_out(", ")
 	}
 
 	print_value(list.items[last])
-	fmt.print("]")
+	write_out("]")
 }
