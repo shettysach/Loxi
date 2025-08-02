@@ -21,7 +21,7 @@ collect_garbage :: proc() {
 	when DEBUG_LOG_GC {
 		fmt.printfln("-- gc end")
 		fmt.printfln(
-			"   collected %v bytes (from %v to %v) next at %v",
+			"collected %v bytes (from %v to %v) next at %v",
 			before - vm.bytes_allocated,
 			before,
 			vm.bytes_allocated,

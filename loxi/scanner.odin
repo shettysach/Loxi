@@ -83,19 +83,19 @@ advance :: proc() -> rune {
 
 @(private = "file")
 peek :: proc() -> rune {
-	if is_at_end() {return 0}
+	if is_at_end() do return 0
 	return rune(scanner.source[scanner.current])
 }
 
 peek_next :: proc() -> rune {
-	if scanner.current + 1 >= len(scanner.source) {return 0}
+	if scanner.current + 1 >= len(scanner.source) do return 0
 	return rune(scanner.source[scanner.current + 1])
 }
 
 @(private = "file")
 match :: proc(expected: rune) -> bool {
-	if is_at_end() {return false}
-	if rune(scanner.source[scanner.current]) != expected {return false}
+	if is_at_end() do return false
+	if rune(scanner.source[scanner.current]) != expected do return false
 	scanner.current += 1
 	return true
 }
@@ -169,13 +169,17 @@ scan_token :: proc() -> Token {
 	case ']':
 		return make_token(.RightBracket)
 	case '!':
-		if match('=') {return make_token(.BangEqual)} else {return make_token(.Bang)}
+		if match('=') do return make_token(.BangEqual)
+		else do return make_token(.Bang)
 	case '=':
-		if match('=') {return make_token(.EqualEqual)} else {return make_token(.Equal)}
+		if match('=') do return make_token(.EqualEqual)
+		else do return make_token(.Equal)
 	case '<':
-		if match('=') {return make_token(.LessEqual)} else {return make_token(.Less)}
+		if match('=') do return make_token(.LessEqual)
+		else do return make_token(.Less)
 	case '>':
-		if match('=') {return make_token(.GreaterEqual)} else {return make_token(.Greater)}
+		if match('=') do return make_token(.GreaterEqual)
+		else do return make_token(.Greater)
 	case '"':
 		return string_scan()
 	}
