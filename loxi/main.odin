@@ -22,7 +22,7 @@ main :: proc() {
 
 repl :: proc() {
 	buffer: [1024]u8
-	input := make([dynamic]u8, 1024)
+	input := make([dynamic]u8)
 
 	braces := 0
 	in_str := false

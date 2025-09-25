@@ -62,11 +62,10 @@ print fib; // [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987]
 
 
 > [!NOTE]
-> - You can use the Odin compiler's `-o:speed` flag for better performance.
-> - You can use NaN boxing for better cache locality. Tested only on x86_64.
->```sh
->odin run loxi -o:speed -define:NAN_BOXING=true -- eg/fib.lox 
->```
+> ### Flags
+> - Use the Odin compiler's optimization flags, such as `-o:speed` flag on the below commands.
+> - For NaN boxing, you can use the flag `-define:NAN_BOXING=true` on the below commands.
+> - You can use the debug flags `-define:PRINT_CODE=true`,  `-define:TRACE_EXECUTION=true` and `-define:LOG_GC=true`.
 
 ## Build and run
 
@@ -83,37 +82,23 @@ odin run loxi -- <filepath>
 ## Build
 
 ```sh
-# repl
 odin build loxi
-```
-
-```sh
-# file
-odin build loxi 
 ```
 
 ## Run
 
 ```sh
 # repl
-./loxi.bin
+./loxi.bin # unix
+
+.\loxi.exe # windows
 ```
 
 ```sh
 # file
-./loxi.bin <filepath>
-```
+./loxi.bin <filepath> # unix
 
-## Debug flags
-
-```sh
-# repl
-odin run loxi -define:PRINT_CODE=true -define:TRACE_EXECUTION=true -define:LOG_GC=true
-```
-
-```sh
-# file
-odin run loxi -define:PRINT_CODE=true -define:TRACE_EXECUTION=true -define:LOG_GC=true -- <filepath>
+.\loxi.exe <filepath> # windows
 ```
 
 ## WASM
