@@ -701,7 +701,7 @@ define_native :: proc(name: string, function: NativeFn) {
 error_native :: proc() {}
 
 clock_native :: proc(args: []Value) -> Value {
-	return number_val(f64(time.now()._nsec))
+	return number_val(f64(time.to_unix_seconds(time.now())))
 }
 
 list_native :: proc(args: []Value) -> Value {
