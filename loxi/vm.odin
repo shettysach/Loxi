@@ -698,8 +698,6 @@ define_native :: proc(name: string, function: NativeFn) {
 	pop_vm()
 }
 
-error_native :: proc() {}
-
 clock_native :: proc(args: []Value) -> Value {
 	return number_val(f64(time.to_unix_seconds(time.now())))
 }

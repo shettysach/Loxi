@@ -29,7 +29,6 @@ when NAN_BOXING {
 	FALSE :: false
 	TRUE :: true
 
-
 	Nil :: struct {
 	}
 }

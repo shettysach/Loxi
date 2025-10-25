@@ -202,6 +202,7 @@ if_statement :: proc() {
 	else_jump := emit_jump(OpCode.Jump)
 
 	patch_jump(then_jump)
+	emit_code(OpCode.Pop)
 
 	if match(.Else) do statement()
 	patch_jump(else_jump)
