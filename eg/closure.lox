@@ -1,0 +1,35 @@
+fun makeCounter() {
+  var i = 0;
+  fun count() {
+    i = i + 1;
+    print i;
+  }
+
+  return count;
+}
+
+print makeCounter;
+
+var counter = 0;
+counter = makeCounter();
+print counter;
+
+counter();
+counter();
+counter();
+
+
+var m = 0;
+
+fun inc() {
+    m = m + 1;
+}
+
+inc();
+inc();
+inc();
+inc();
+inc();
+
+print inc;
+print m;

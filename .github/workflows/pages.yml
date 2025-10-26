@@ -1,0 +1,118 @@
+name: Build and Deploy Pages
+
+on:
+  push:
+    branches: ["wasm"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure unzip and tar
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip tar
+
+      - name: Cache Odin toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.odin
+          key: odin-${{ runner.os }}-dev-2025-06
+          restore-keys: |
+            odin-${{ runner.os }}-
+
+      - name: Install Odin (dev-2025-06)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p ~/.odin
+          ODIN_URL="https://github.com/odin-lang/Odin/releases/download/dev-2025-06/odin-linux-amd64-dev-2025-06.zip"
+          # Download and unzip; this yields dist.tar.gz inside ~/.odin
+          curl -fL "$ODIN_URL" -o /tmp/odin.zip
+          unzip -o -q /tmp/odin.zip -d ~/.odin
+
+          # Extract nested tarball if present
+          if [ -f ~/.odin/dist.tar.gz ]; then
+            tar -xzf ~/.odin/dist.tar.gz -C ~/.odin
+          fi
+
+          # Find the odin binary and export its directory for later steps
+          ODIN_BIN="$(find ~/.odin -type f -name 'odin' -perm -u+x | head -n1 || true)"
+          if [ -z "$ODIN_BIN" ]; then
+            echo "odin binary not found after extraction" >&2
+            find ~/.odin -maxdepth 3 -print >&2 || true
+            exit 1
+          fi
+          ODIN_DIR="$(dirname "$ODIN_BIN")"
+          chmod +x "$ODIN_BIN" || true
+          echo "$ODIN_DIR" >> "$GITHUB_PATH"
+
+      - name: Check Odin
+        shell: bash
+        run: |
+          set -euxo pipefail
+          which odin
+          odin version
+          odin env || true
+
+      - name: Install wasm linker (lld)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lld
+
+      - name: Build WASM (into docs/)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p docs
+          rm -f docs/loxi.wasm
+          odin build ./loxi \
+            -target:js_wasm32 \
+            -out:./docs/loxi.wasm \
+            -o:speed \
+            -no-entry-point \
+            -disable-assert \
+            -no-bounds-check \
+            -no-crt \
+            -extra-linker-flags:-O3 \
+            -define:NAN_BOXING=true
+          # Ensure Pages doesn't run Jekyll magic
+          touch docs/.nojekyll
+
+      - name: Verify loxi.wasm present and valid
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -f docs/loxi.wasm
+          # Expect 00 61 73 6d (wasm magic)
+          xxd -l 4 -p docs/loxi.wasm | grep -qi '^0061736d$'
+          ls -lah docs
+
+      - name: Upload artifact (docs/)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Loxi - Lox interpreter playground</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" type="text/css" href="./styles.css" />
+    <link rel="icon" type="image/x-icon" href="./loki.ico" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Libertinus+Mono:wght@400&display=swap"
+      rel="stylesheet"
+    />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Libertinus+Serif:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&display=swap"
+      rel="stylesheet"
+    />
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+  </head>
+  <body>
+    <div id="top-bar">
+      <div class="left">
+        <h1>
+          <a href="https://shettysach.github.io/Loxi">LOXI</a>
+        </h1>
+        <p>
+          Bytecode interpreter for
+          <a href="https://craftinginterpreters.com/the-lox-language.html"
+            >Lox</a
+          >, written in <a href="https://odin-lang.org/">Odin</a>
+        </p>
+      </div>
+
+      <div class="right">
+        <a href="https://github.com/shettysach/Loxi">[source code]</a>
+        <select id="example-dropdown" title="Select an example">
+          <option value="" disabled selected>Select an example</option>
+        </select>
+        <button onclick="submitCode()" title="Ctrl+Enter">▶ Run</button>
+      </div>
+    </div>
+
+    <div id="main">
+      <div id="left-panel">
+        <div class="editor-container">
+          <div id="line-numbers"></div>
+          <div id="code-editor">
+            <pre><code id="highlighted-code" class="language-lox"></code></pre>
+            <textarea
+              id="code-input"
+              placeholder="Type your Lox code here."
+            ></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div id="right-panel">
+        <div id="output" placeholder="Output appears here."></div>
+      </div>
+    </div>
+
+    <script src="lox.js"></script>
+    <script src="script.js" defer></script>
+  </body>
+</html>
