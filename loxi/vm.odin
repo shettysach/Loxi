@@ -668,8 +668,7 @@ values_equal :: proc(val_a, val_b: Value) -> Value {
 	a, a_ok := try_object(val_a)
 	b, b_ok := try_object(val_b)
 
-	if a_ok && b_ok do return bool_val(a == b)
-	else do return bool_val(val_a == val_b)
+	return bool_val(a_ok && b_ok ? a == b : val_a == val_b)
 }
 
 runtime_error :: proc(format: string, args: ..any) {
@@ -697,8 +696,6 @@ define_native :: proc(name: string, function: NativeFn) {
 	pop_vm()
 	pop_vm()
 }
-
-error_native :: proc() {}
 
 clock_native :: proc(args: []Value) -> Value {
 	return number_val(f64(time.to_unix_seconds(time.now())))

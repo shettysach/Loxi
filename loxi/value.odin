@@ -29,9 +29,9 @@ when NAN_BOXING {
 	FALSE :: false
 	TRUE :: true
 
-
 	Nil :: struct {
 	}
+
 }
 
 number_val :: proc(number: f64) -> Value {
