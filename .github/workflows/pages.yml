@@ -39,26 +39,10 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p ~/.odin
-          ODIN_URL="https://github.com/odin-lang/Odin/releases/download/dev-2025-06/odin-linux-amd64-dev-2025-06.zip"
-          # Download and unzip; this yields dist.tar.gz inside ~/.odin
-          curl -fL "$ODIN_URL" -o /tmp/odin.zip
+          curl -fL https://github.com/odin-lang/Odin/releases/download/dev-2025-06/odin-linux-amd64-dev-2025-06.zip -o /tmp/odin.zip
           unzip -o -q /tmp/odin.zip -d ~/.odin
-
-          # Extract nested tarball if present
-          if [ -f ~/.odin/dist.tar.gz ]; then
-            tar -xzf ~/.odin/dist.tar.gz -C ~/.odin
-          fi
-
-          # Find the odin binary and export its directory for later steps
-          ODIN_BIN="$(find ~/.odin -type f -name 'odin' -perm -u+x | head -n1 || true)"
-          if [ -z "$ODIN_BIN" ]; then
-            echo "odin binary not found after extraction" >&2
-            find ~/.odin -maxdepth 3 -print >&2 || true
-            exit 1
-          fi
-          ODIN_DIR="$(dirname "$ODIN_BIN")"
-          chmod +x "$ODIN_BIN" || true
-          echo "$ODIN_DIR" >> "$GITHUB_PATH"
+          tar -xzf ~/.odin/dist.tar.gz -C ~/.odin
+          echo "$HOME/.odin/odin-linux-amd64-nightly+2025-06-02" >> "$GITHUB_PATH"
 
       - name: Check Odin
         shell: bash
