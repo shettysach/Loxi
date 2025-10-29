@@ -7,7 +7,7 @@ Scanner :: struct {
 	source:  ^[]u8,
 	start:   uint,
 	current: uint,
-	line:    uint,
+	line:    u16,
 }
 
 scanner := Scanner{}
@@ -22,7 +22,7 @@ init_scanner :: proc(source: ^[]u8) {
 Token :: struct {
 	ttype:  TokenType,
 	lexeme: string,
-	line:   uint,
+	line:   u16,
 }
 
 TokenType :: enum {

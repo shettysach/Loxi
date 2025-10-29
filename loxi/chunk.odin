@@ -46,14 +46,14 @@ OpCode :: enum u8 {
 Chunk :: struct {
 	code:      [dynamic]u8,
 	constants: [dynamic]Value,
-	lines:     [dynamic]uint,
+	lines:     [dynamic]u16,
 }
 
 init_chunk :: proc() -> Chunk {
 	return Chunk {
 		code = make([dynamic]u8),
 		constants = make([dynamic]Value),
-		lines = make([dynamic]uint),
+		lines = make([dynamic]u16),
 	}
 }
 
@@ -63,7 +63,7 @@ free_chunk :: proc(c: ^Chunk) {
 	delete(c.lines)
 }
 
-write_chunk :: proc(c: ^Chunk, byte: u8, line: uint) {
+write_chunk :: proc(c: ^Chunk, byte: u8, line: u16) {
 	append_elem(&c.code, byte)
 	append_elem(&c.lines, line)
 }
