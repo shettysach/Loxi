@@ -8,9 +8,9 @@
       name: "Lox",
       keywords: {
         keyword:
-          "and class else false for fun if nil or print return super this true var while list append insert delete push pop clock",
+          "and class else false for fun if nil or print return super this true var while ",
         literal: "true false nil",
-        built_in: "clock",
+        built_in: "clock list len append insert delete push pop",
       },
       contains: [
         // Line comments
