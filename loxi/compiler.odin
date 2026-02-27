@@ -412,7 +412,7 @@ grouping :: proc(can_assign: bool) {
 
 @(private = "file")
 number :: proc(can_assign: bool) {
-	value := strconv.atof(parser.previous.lexeme)
+	value, _ := strconv.parse_f64(parser.previous.lexeme)
 	emit_constant(number_val(value))
 }
 
