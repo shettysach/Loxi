@@ -125,9 +125,19 @@ window.addEventListener("DOMContentLoaded", () => {
   loadExamples();
 });
 
+const INPUT_LIMIT = 4096;
+
 window.submitCode = () => {
   output.textContent = "";
-  worker.postMessage({ type: "run_file", code: textarea.value });
+  const code = textarea.value;
+  if (new TextEncoder().encode(code).length > INPUT_LIMIT) {
+    const span = document.createElement("span");
+    span.style.color = "var(--err)";
+    span.textContent = "Input exceeds 4096 byte limit.\n";
+    output.appendChild(span);
+    return;
+  }
+  worker.postMessage({ type: "run_file", code });
 };
 
 const replCommandHistory = [];
@@ -167,7 +177,18 @@ function submitReplLine() {
 
   replInput.value = "";
   updateReplHighlighting();
-  worker.postMessage({ type: "repl_line", line: line + "\n" });
+
+  const payload = line + "\n";
+  if (new TextEncoder().encode(payload).length > INPUT_LIMIT) {
+    const err = document.createElement("span");
+    err.className = "repl-err";
+    err.textContent = "Input exceeds 4096 byte limit.\n";
+    replHistory.appendChild(err);
+    replScroll.scrollTop = replScroll.scrollHeight;
+    return;
+  }
+
+  worker.postMessage({ type: "repl_line", line: payload });
   replScroll.scrollTop = replScroll.scrollHeight;
 }
 
@@ -187,8 +208,7 @@ function switchTab(mode) {
     output.textContent = "";
     replHistory.innerHTML = "";
     replPrompt.textContent = "> ";
-    replCommandHistory.length = 0;
-    replHistoryIndex = -1;
+    replHistoryIndex = replCommandHistory.length;
     worker.postMessage({ type: "init_repl" });
     replInput.focus();
   } else {

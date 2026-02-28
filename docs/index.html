@@ -33,10 +33,10 @@
             >Lox</a
           >, written in <a href="https://odin-lang.org/">Odin</a>
         </p>
+        <a href="https://github.com/shettysach/Loxi">[source code]</a>
       </div>
 
       <div class="right">
-        <a href="https://github.com/shettysach/Loxi">[source code]</a>
         <span id="file-controls">
           <select id="example-dropdown" title="Select an example">
             <option value="" disabled selected>Select an example</option>
@@ -46,12 +46,13 @@
       </div>
     </div>
 
+    <div id="tab-bar">
+      <button class="tab active" data-tab="file">File</button>
+      <button class="tab" data-tab="repl">REPL</button>
+    </div>
+
     <div id="main">
       <div id="left-panel">
-        <div id="tab-bar">
-          <button class="tab active" data-tab="file">File</button>
-          <button class="tab" data-tab="repl">REPL</button>
-        </div>
         <div id="file-mode">
           <div class="editor-container">
             <div id="line-numbers"></div>
