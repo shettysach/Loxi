@@ -4,6 +4,8 @@ Bytecode interpreter for [the Lox language](https://craftinginterpreters.com/the
 
 You can use the [WASM playground](https://shettysach.github.io/Loxi/) hosted on GitHub Pages. 
 
+![WASM DEMO](./LOXI.png)
+
 ## Lists
 
 Also supports lists and has additional native functions. Credits to [Caleb Schoepp's blog](https://calebschoepp.com/blog/2020/adding-a-list-data-type-to-lox/). 
