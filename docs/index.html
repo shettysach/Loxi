@@ -37,23 +37,43 @@
 
       <div class="right">
         <a href="https://github.com/shettysach/Loxi">[source code]</a>
-        <select id="example-dropdown" title="Select an example">
-          <option value="" disabled selected>Select an example</option>
-        </select>
-        <button onclick="submitCode()" title="Ctrl+Enter">▶ Run</button>
+        <span id="file-controls">
+          <select id="example-dropdown" title="Select an example">
+            <option value="" disabled selected>Select an example</option>
+          </select>
+          <button onclick="submitCode()" title="Ctrl+Enter">▶ Run</button>
+        </span>
       </div>
     </div>
 
     <div id="main">
       <div id="left-panel">
-        <div class="editor-container">
-          <div id="line-numbers"></div>
-          <div id="code-editor">
-            <pre><code id="highlighted-code" class="language-lox"></code></pre>
-            <textarea
-              id="code-input"
-              placeholder="Type your Lox code here."
-            ></textarea>
+        <div id="tab-bar">
+          <button class="tab active" data-tab="file">File</button>
+          <button class="tab" data-tab="repl">REPL</button>
+        </div>
+        <div id="file-mode">
+          <div class="editor-container">
+            <div id="line-numbers"></div>
+            <div id="code-editor">
+              <pre><code id="highlighted-code" class="language-lox"></code></pre>
+              <textarea
+                id="code-input"
+                placeholder="Type your Lox code here."
+              ></textarea>
+            </div>
+          </div>
+        </div>
+        <div id="repl-mode" style="display: none">
+          <div id="repl-scroll">
+            <div id="repl-history"></div>
+            <div id="repl-input-line">
+              <span id="repl-prompt">&gt; </span>
+              <div id="repl-editor">
+                <pre><code id="repl-highlighted" class="language-lox"></code></pre>
+                <textarea id="repl-input" rows="1"></textarea>
+              </div>
+            </div>
           </div>
         </div>
       </div>

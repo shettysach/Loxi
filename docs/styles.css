@@ -202,6 +202,12 @@ a:hover {
   gap: 2rem;
 }
 
+#file-controls {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
 textarea::placeholder,
 input::placeholder {
   color: var(--place);
@@ -330,6 +336,10 @@ input::placeholder {
 #highlighted-code,
 #code-input,
 #line-numbers,
+#repl-editor,
+#repl-editor pre,
+#repl-highlighted,
+#repl-input,
 .hljs,
 .hljs * {
   font-family: var(--mono) !important;
@@ -395,6 +405,11 @@ input::placeholder {
 #highlighted-code *,
 #code-input,
 #line-numbers,
+#repl-editor,
+#repl-editor *,
+#repl-highlighted,
+#repl-highlighted *,
+#repl-input,
 .hljs,
 .hljs *,
 pre,
@@ -412,4 +427,148 @@ pre * {
   tab-size: inherit !important;
   -moz-tab-size: inherit !important;
   -webkit-tab-size: inherit !important;
+}
+
+/* Tab bar */
+#tab-bar {
+  display: flex;
+  background-color: var(--area);
+  border-bottom: 1px solid var(--border);
+}
+
+#tab-bar .tab {
+  background: transparent;
+  color: var(--place);
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.4rem 1.2rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+#tab-bar .tab.active {
+  color: var(--border);
+  border-bottom-color: var(--border);
+}
+
+#tab-bar .tab:hover {
+  color: var(--text);
+  background-color: transparent;
+}
+
+/* File mode wrapper */
+#file-mode {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* REPL mode */
+#repl-mode {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#repl-scroll {
+  flex: 1;
+  overflow-y: auto;
+  background-color: var(--area);
+  padding: 1rem;
+}
+
+.repl-entry {
+  display: flex;
+}
+
+.repl-prompt-char {
+  color: var(--border);
+  user-select: none;
+  flex-shrink: 0;
+  margin-right: 0.5rem;
+  font-size: 1.1rem;
+  line-height: 1.4;
+}
+
+.repl-entry code {
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0;
+}
+
+.repl-out,
+.repl-err {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 1.1rem;
+  line-height: 1.4;
+  padding-left: 1rem;
+}
+
+.repl-err {
+  color: var(--err);
+}
+
+#repl-input-line {
+  display: flex;
+}
+
+#repl-prompt {
+  color: var(--border);
+  user-select: none;
+  flex-shrink: 0;
+  margin-right: 0.5rem;
+  font-size: 1.1rem;
+  line-height: 1.4;
+}
+
+#repl-editor {
+  display: grid;
+  flex: 1;
+}
+
+#repl-editor pre,
+#repl-input {
+  grid-area: 1 / 1;
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  line-height: 1.4;
+  white-space: pre;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+}
+
+#repl-editor pre {
+  background: transparent !important;
+  pointer-events: none;
+  z-index: 1;
+}
+
+#repl-highlighted {
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0;
+}
+
+#repl-input {
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text);
+  resize: none;
+  z-index: 2;
+  overflow: hidden;
+  min-height: 0;
+}
+
+#repl-input::selection {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Hide right panel in REPL mode */
+#main.repl-active #right-panel {
+  display: none;
 }

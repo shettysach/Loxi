@@ -34,9 +34,31 @@ async function init() {
 }
 
 let currentInput = "";
+let replActive = false;
 
 onmessage = async ({ data }) => {
   if (!instance) await init();
-  currentInput = String(data.code);
-  instance.exports.run_file();
+
+  switch (data.type) {
+    case "run_file":
+      currentInput = String(data.code);
+      instance.exports.run_file();
+      break;
+    case "init_repl":
+      instance.exports.init_repl();
+      replActive = true;
+      postMessage({ type: "prompt", braces: 0 });
+      break;
+    case "repl_line":
+      currentInput = String(data.line);
+      const braces = instance.exports.repl_line();
+      postMessage({ type: "prompt", braces });
+      break;
+    case "free_repl":
+      if (replActive) {
+        instance.exports.free_repl();
+        replActive = false;
+      }
+      break;
+  }
 };
