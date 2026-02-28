@@ -1,3 +1,5 @@
+/* ── DOM refs ─────────────────────────────────────────── */
+
 const textarea = document.getElementById("code-input");
 const lineNumbers = document.getElementById("line-numbers");
 const highlightedCode = document.getElementById("highlighted-code");
@@ -14,8 +16,15 @@ const fileControls = document.getElementById("file-controls");
 const tabButtons = document.querySelectorAll("#tab-bar .tab");
 const mainEl = document.getElementById("main");
 
-const worker = new Worker("./worker.js");
+/* ── Constants ───────────────────────────────────────── */
 
+const INPUT_LIMIT = 4096;
+const REPL_HISTORY_MAX = 10;
+const encoder = new TextEncoder();
+
+/* ── Worker ──────────────────────────────────────────── */
+
+const worker = new Worker("./worker.js");
 let currentMode = "file";
 
 worker.onmessage = ({ data }) => {
@@ -40,11 +49,14 @@ worker.onmessage = ({ data }) => {
   }
 };
 
+/* ── File editor ─────────────────────────────────────── */
+
 function updateLineNumbers() {
   const lines = textarea.value.split("\n").length;
-  lineNumbers.textContent = Array.from({ length: lines }, (_, i) => i + 1).join(
-    "\n",
-  );
+  lineNumbers.textContent = Array.from(
+    { length: lines },
+    (_, i) => i + 1,
+  ).join("\n");
 }
 
 function updateHighlighting() {
@@ -53,43 +65,100 @@ function updateHighlighting() {
   updateLineNumbers();
 }
 
+function syncScroll() {
+  highlightedCode.parentElement.scrollTop = textarea.scrollTop;
+  highlightedCode.parentElement.scrollLeft = textarea.scrollLeft;
+  lineNumbers.scrollTop = textarea.scrollTop;
+}
+
+textarea.addEventListener("input", updateHighlighting);
+textarea.addEventListener("scroll", syncScroll);
+
+window.submitCode = () => {
+  output.textContent = "";
+  const code = textarea.value;
+  if (encoder.encode(code).length > INPUT_LIMIT) {
+    const span = document.createElement("span");
+    span.style.color = "var(--err)";
+    span.textContent = "Input exceeds 4096 byte limit.\n";
+    output.appendChild(span);
+    return;
+  }
+  worker.postMessage({ type: "run_file", code });
+};
+
+/* ── REPL ────────────────────────────────────────────── */
+
+const replCommandHistory = [];
+let replHistoryIndex = -1;
+
 function updateReplHighlighting() {
   replHighlighted.textContent = replInput.value;
   hljs.highlightElement(replHighlighted);
 }
 
-function syncScroll() {
-  const scrollTop = textarea.scrollTop;
-  const scrollLeft = textarea.scrollLeft;
-
-  highlightedCode.parentElement.scrollTop = scrollTop;
-  highlightedCode.parentElement.scrollLeft = scrollLeft;
-  lineNumbers.scrollTop = scrollTop;
-}
-
-textarea.addEventListener("input", updateHighlighting);
-textarea.addEventListener("scroll", syncScroll);
 replInput.addEventListener("input", updateReplHighlighting);
 
-document.addEventListener("keydown", function (e) {
+function submitReplLine() {
+  const line = replInput.value;
+  if (line === "" && replPrompt.textContent.trim() === ">") return;
+
+  if (line !== "" && line !== replCommandHistory[replCommandHistory.length - 1]) {
+    replCommandHistory.push(line);
+    if (replCommandHistory.length > REPL_HISTORY_MAX) replCommandHistory.shift();
+  }
+  replHistoryIndex = replCommandHistory.length;
+
+  const entry = document.createElement("div");
+  entry.className = "repl-entry";
+
+  const prompt = document.createElement("span");
+  prompt.className = "repl-prompt-char";
+  prompt.textContent = replPrompt.textContent;
+
+  const code = document.createElement("code");
+  code.className = "language-lox";
+  code.textContent = line;
+  hljs.highlightElement(code);
+
+  entry.appendChild(prompt);
+  entry.appendChild(code);
+  replHistory.appendChild(entry);
+
+  replInput.value = "";
+  updateReplHighlighting();
+
+  const payload = line + "\n";
+  if (encoder.encode(payload).length > INPUT_LIMIT) {
+    const err = document.createElement("span");
+    err.className = "repl-err";
+    err.textContent = "Input exceeds 4096 byte limit.\n";
+    replHistory.appendChild(err);
+    replScroll.scrollTop = replScroll.scrollHeight;
+    return;
+  }
+
+  worker.postMessage({ type: "repl_line", line: payload });
+  replScroll.scrollTop = replScroll.scrollHeight;
+}
+
+/* ── Key handling ────────────────────────────────────── */
+
+function insertTab(el, updateFn) {
+  const start = el.selectionStart;
+  const end = el.selectionEnd;
+  el.value = el.value.substring(0, start) + "\t" + el.value.substring(end);
+  el.selectionStart = el.selectionEnd = start + 1;
+  updateFn();
+}
+
+document.addEventListener("keydown", (e) => {
   if (e.key === "Tab" && document.activeElement === textarea) {
     e.preventDefault();
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    textarea.value =
-      textarea.value.substring(0, start) + "\t" + textarea.value.substring(end);
-    textarea.selectionStart = textarea.selectionEnd = start + 1;
-    updateHighlighting();
+    insertTab(textarea, updateHighlighting);
   } else if (e.key === "Tab" && document.activeElement === replInput) {
     e.preventDefault();
-    const start = replInput.selectionStart;
-    const end = replInput.selectionEnd;
-    replInput.value =
-      replInput.value.substring(0, start) +
-      "\t" +
-      replInput.value.substring(end);
-    replInput.selectionStart = replInput.selectionEnd = start + 1;
-    updateReplHighlighting();
+    insertTab(replInput, updateReplHighlighting);
   } else if (e.key === "Enter" && e.ctrlKey) {
     e.preventDefault();
     if (currentMode === "file") window.submitCode();
@@ -120,77 +189,7 @@ document.addEventListener("keydown", function (e) {
   }
 });
 
-window.addEventListener("DOMContentLoaded", () => {
-  updateHighlighting();
-  loadExamples();
-});
-
-const INPUT_LIMIT = 4096;
-
-window.submitCode = () => {
-  output.textContent = "";
-  const code = textarea.value;
-  if (new TextEncoder().encode(code).length > INPUT_LIMIT) {
-    const span = document.createElement("span");
-    span.style.color = "var(--err)";
-    span.textContent = "Input exceeds 4096 byte limit.\n";
-    output.appendChild(span);
-    return;
-  }
-  worker.postMessage({ type: "run_file", code });
-};
-
-const replCommandHistory = [];
-let replHistoryIndex = -1;
-const REPL_HISTORY_MAX = 10;
-
-function submitReplLine() {
-  const line = replInput.value;
-  if (line === "" && replPrompt.textContent.trim() === ">") return;
-
-  if (
-    line !== "" &&
-    line !== replCommandHistory[replCommandHistory.length - 1]
-  ) {
-    replCommandHistory.push(line);
-    if (replCommandHistory.length > REPL_HISTORY_MAX) {
-      replCommandHistory.shift();
-    }
-  }
-  replHistoryIndex = replCommandHistory.length;
-
-  const entry = document.createElement("div");
-  entry.className = "repl-entry";
-
-  const prompt = document.createElement("span");
-  prompt.className = "repl-prompt-char";
-  prompt.textContent = replPrompt.textContent;
-
-  const code = document.createElement("code");
-  code.className = "language-lox";
-  code.textContent = line;
-  hljs.highlightElement(code);
-
-  entry.appendChild(prompt);
-  entry.appendChild(code);
-  replHistory.appendChild(entry);
-
-  replInput.value = "";
-  updateReplHighlighting();
-
-  const payload = line + "\n";
-  if (new TextEncoder().encode(payload).length > INPUT_LIMIT) {
-    const err = document.createElement("span");
-    err.className = "repl-err";
-    err.textContent = "Input exceeds 4096 byte limit.\n";
-    replHistory.appendChild(err);
-    replScroll.scrollTop = replScroll.scrollHeight;
-    return;
-  }
-
-  worker.postMessage({ type: "repl_line", line: payload });
-  replScroll.scrollTop = replScroll.scrollHeight;
-}
+/* ── Tab switching ───────────────────────────────────── */
 
 function switchTab(mode) {
   if (mode === currentMode) return;
@@ -224,6 +223,8 @@ tabButtons.forEach((btn) => {
   btn.addEventListener("click", () => switchTab(btn.dataset.tab));
 });
 
+/* ── Examples ────────────────────────────────────────── */
+
 let examples = {};
 
 async function loadExamples() {
@@ -244,4 +245,11 @@ dropdown.addEventListener("change", (e) => {
     textarea.value = examples[selectedExample];
     updateHighlighting();
   }
+});
+
+/* ── Init ────────────────────────────────────────────── */
+
+window.addEventListener("DOMContentLoaded", () => {
+  updateHighlighting();
+  loadExamples();
 });

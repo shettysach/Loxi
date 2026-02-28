@@ -2,7 +2,7 @@
 
 Lox bytecode interpreter with a mark and sweep garbage collector, based on the second half of [Crafting Interpreters by Robert Nystorm](https://craftinginterpreters.com/).
 
-## Build and run
+## Build and run WASM
 
 ```sh
 odin build ./loxi \
