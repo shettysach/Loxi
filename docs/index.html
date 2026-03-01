@@ -35,20 +35,17 @@
         </p>
         <a href="https://github.com/shettysach/Loxi">[source code]</a>
       </div>
-
-      <div class="right">
-        <span id="file-controls">
-          <select id="example-dropdown" title="Select an example">
-            <option value="" disabled selected>Select an example</option>
-          </select>
-          <button onclick="submitCode()" title="Ctrl+Enter">▶ Run</button>
-        </span>
-      </div>
     </div>
 
     <div id="tab-bar">
       <button class="tab active" data-tab="file">File</button>
       <button class="tab" data-tab="repl">REPL</button>
+      <span id="file-controls">
+        <select id="example-dropdown" title="Example">
+          <option value="" disabled selected>Example</option>
+        </select>
+        <button onclick="submitCode()" title="Ctrl+Enter">▶ Run</button>
+      </span>
     </div>
 
     <div id="main">
