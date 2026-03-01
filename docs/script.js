@@ -36,10 +36,16 @@ worker.onmessage = ({ data }) => {
   }
 
   if (currentMode === "repl") {
-    const span = document.createElement("span");
-    span.textContent = data.text;
-    span.className = data.type === "err" ? "repl-err" : "repl-out";
-    replHistory.appendChild(span);
+    const cls = data.type === "err" ? "repl-err" : "repl-out";
+    const last = replHistory.lastElementChild;
+    if (last && last.className === cls) {
+      last.textContent += data.text;
+    } else {
+      const span = document.createElement("span");
+      span.textContent = data.text;
+      span.className = cls;
+      replHistory.appendChild(span);
+    }
     replScroll.scrollTop = replScroll.scrollHeight;
   } else {
     const span = document.createElement("span");

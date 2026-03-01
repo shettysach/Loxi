@@ -174,7 +174,7 @@ a:hover {
   background-color: var(--bg);
   color: var(--text);
   font-family: var(--mono);
-  border: none;
+  border: ridge var(--border);
   padding: 0;
   font-size: 1rem;
   cursor: pointer;
@@ -471,6 +471,7 @@ pre * {
 
 .repl-out,
 .repl-err {
+  display: block;
   white-space: pre-wrap;
   word-break: break-word;
   font-size: 1.1rem;
