@@ -53,10 +53,9 @@ worker.onmessage = ({ data }) => {
 
 function updateLineNumbers() {
   const lines = textarea.value.split("\n").length;
-  lineNumbers.textContent = Array.from(
-    { length: lines },
-    (_, i) => i + 1,
-  ).join("\n");
+  lineNumbers.textContent = Array.from({ length: lines }, (_, i) => i + 1).join(
+    "\n",
+  );
 }
 
 function updateHighlighting() {
@@ -103,9 +102,13 @@ function submitReplLine() {
   const line = replInput.value;
   if (line === "" && replPrompt.textContent.trim() === ">") return;
 
-  if (line !== "" && line !== replCommandHistory[replCommandHistory.length - 1]) {
+  if (
+    line !== "" &&
+    line !== replCommandHistory[replCommandHistory.length - 1]
+  ) {
     replCommandHistory.push(line);
-    if (replCommandHistory.length > REPL_HISTORY_MAX) replCommandHistory.shift();
+    if (replCommandHistory.length > REPL_HISTORY_MAX)
+      replCommandHistory.shift();
   }
   replHistoryIndex = replCommandHistory.length;
 
